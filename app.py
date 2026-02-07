@@ -536,9 +536,10 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
     """
     Parse HTML tables AND Markdown tables from MinerU.net OCR output to extract dimension data.
 
-    Supports BOTH formats:
-    1. HTML tables: <table><tr><td>...</td></tr></table>
-    2. Markdown tables: | col1 | col2 | col3 |
+    NOW SUPPORTS:
+    1. Single-table format (specs + data in one table)
+    2. Split-table format (specs in Table 1, data in Table 2)
+    3. Both HTML <table> and Markdown pipe | syntax
 
     Expected HTML format from MinerU.net:
       <table>
@@ -552,23 +553,55 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
       | 检验位置 | 1 | 11 | 13 |
       | **检验标准** | 27.80±0.10 | Φ6.00±0.10 | 73.20±0.15 |
       | 1 | 27.85 | OK | 6.02 | OK | 73.14 | OK |
+
+    Split-table format (NEW):
+      Table 1: | 检验位置 | 1 | 11 | 13 |
+               | **检验标准** | 27.80±0.10 | Φ6.00±0.10 | 73.20±0.15 |
+      Table 2: | 结果序号 | 测试结果(1) | 判定 | ... |
+               | 1 | 27.85 | OK | ... |
     """
     dimensions = []
 
-    # Parse HTML tables first
-    html_dimensions = _parse_html_table_tags(markdown_text)
-    dimensions.extend(html_dimensions)
+    # Parse all tables (both HTML and Markdown)
+    all_tables = []
 
-    # Then parse Markdown tables (pipe syntax)
-    md_dimensions = _parse_markdown_tables(markdown_text)
-    dimensions.extend(md_dimensions)
+    # HTML tables
+    html_tables = _parse_html_table_tags(markdown_text)
+    all_tables.extend(html_tables)
+
+    # Markdown tables
+    md_tables = _parse_markdown_tables(markdown_text)
+    all_tables.extend(md_tables)
+
+    # Process tables sequentially with state tracking
+    pending_specs = None
+
+    for table_data in all_tables:
+        table_type = _detect_table_type(table_data)
+
+        if table_type == "SPECS_ONLY":
+            # Extract specs, remember for next table
+            pending_specs = _extract_specs_from_table(table_data)
+
+        elif table_type == "DATA_TABLE" and pending_specs:
+            # Combine pending specs with this data table
+            dims = _extract_data_with_specs(table_data, pending_specs)
+            dimensions.extend(dims)
+            pending_specs = None
+
+        elif table_type == "COMPLETE":
+            # Single table with everything (backward compatible)
+            dims = _extract_dimensions_from_table_data(table_data)
+            dimensions.extend(dims)
+
+        # UNKNOWN tables are skipped
 
     return dimensions
 
 
-def _parse_html_table_tags(markdown_text: str) -> List[Dict[str, Any]]:
-    """Parse HTML <table> tags from text."""
-    dimensions = []
+def _parse_html_table_tags(markdown_text: str) -> List[List[str]]:
+    """Parse HTML <table> tags from text and return raw table data."""
+    all_tables = []
 
     # Find all table tags and their content
     table_pattern = r'<table>(.*?)</table>'
@@ -579,7 +612,7 @@ def _parse_html_table_tags(markdown_text: str) -> List[Dict[str, Any]]:
         row_pattern = r'<tr>(.*?)</tr>'
         rows = re.findall(row_pattern, table_content, re.DOTALL)
 
-        if len(rows) < 4:
+        if len(rows) < 2:
             continue
 
         # Extract cells from each row
@@ -596,23 +629,21 @@ def _parse_html_table_tags(markdown_text: str) -> List[Dict[str, Any]]:
                 clean_cells.append(clean)
             table_data.append(clean_cells)
 
-        # Use shared extraction logic
-        dims = _extract_dimensions_from_table_data(table_data)
-        dimensions.extend(dims)
+        all_tables.append(table_data)
 
-    return dimensions
+    return all_tables
 
 
-def _parse_markdown_tables(markdown_text: str) -> List[Dict[str, Any]]:
+def _parse_markdown_tables(markdown_text: str) -> List[List[str]]:
     """
-    Parse Markdown tables with pipe | syntax.
+    Parse Markdown tables with pipe | syntax and return raw table data.
 
     Handles format:
       | header1 | header2 | header3 |
       |---------|---------|---------|
       | data1   | data2   | data3   |
     """
-    dimensions = []
+    all_tables = []
     lines = markdown_text.split('\n')
 
     i = 0
@@ -622,22 +653,25 @@ def _parse_markdown_tables(markdown_text: str) -> List[Dict[str, Any]]:
             i += 1
             continue
 
-        # Check if this looks like an inspection table
-        # by collecting table rows
+        # Collect table rows
         table_lines = []
         j = i
         while j < len(lines) and '|' in lines[j]:
             table_lines.append(lines[j])
             j += 1
 
-        # Need minimum rows: position, separator/spec, 3+ data rows
-        if len(table_lines) < 4:
+        # Need minimum rows for inspection table
+        if len(table_lines) < 2:
             i = j
             continue
 
         # Parse table into cells
         table_data = []
         for line in table_lines:
+            # Skip separator rows (e.g., |---|---|---|)
+            if re.match(r'^\s*\|?\s*[\-\s]+\|[\-\s|]*\|?\s*$', line):
+                continue
+
             # Remove leading/trailing |
             line = line.strip()
             if line.startswith('|'):
@@ -650,11 +684,155 @@ def _parse_markdown_tables(markdown_text: str) -> List[Dict[str, Any]]:
             if cells:
                 table_data.append(cells)
 
-        # Extract dimensions using same logic as HTML parser
-        dims = _extract_dimensions_from_table_data(table_data)
-        dimensions.extend(dims)
+        if table_data:
+            all_tables.append(table_data)
 
         i = j  # Move past this table
+
+    return all_tables
+
+
+def _detect_table_type(table_data: List[List[str]]) -> str:
+    """
+    Detect what kind of table this is.
+
+    Returns:
+        "SPECS_ONLY" - Has specs but no data rows
+        "DATA_TABLE" - Has data rows with header
+        "COMPLETE" - Single table with specs and data
+        "UNKNOWN" - Not an inspection table
+    """
+    if len(table_data) < 2:
+        return "UNKNOWN"
+
+    # Flatten all cells for easier checking
+    all_cells = [cell for row in table_data for cell in row]
+
+    has_position = any('检验位置' in cell for cell in all_cells)
+    has_spec = any('检验标准' in cell for cell in all_cells)
+    has_data_header = any('结果序号' in cell or '测试结果' in cell for cell in all_cells)
+    has_numeric_rows = any(row and row[0].isdigit() for row in table_data)
+
+    # Specs-only table (small table with position + spec, no data)
+    if has_position and has_spec and not has_numeric_rows:
+        return "SPECS_ONLY"
+
+    # Data table with header
+    if has_data_header and has_numeric_rows:
+        return "DATA_TABLE"
+
+    # Complete single table
+    if has_spec and has_numeric_rows and len(table_data) >= 4:
+        return "COMPLETE"
+
+    return "UNKNOWN"
+
+
+def _extract_specs_from_table(table_data: List[List[str]]) -> Optional[Dict[str, Any]]:
+    """
+    Extract specs from a specs-only table.
+
+    Returns: {
+        'specs': [...],
+        'spec_col_indices': [...],
+        'position_names': [...]  # From header row if available
+    }
+    """
+    # Find spec row
+    spec_row_idx = None
+    position_row_idx = None
+
+    for i, row in enumerate(table_data):
+        if not row:
+            continue
+        if any('检验位置' in cell for cell in row):
+            position_row_idx = i
+        elif any('检验标准' in cell for cell in row):
+            spec_row_idx = i
+            break
+
+    if spec_row_idx is None:
+        return None
+
+    spec_row = table_data[spec_row_idx]
+    specs = []
+    spec_col_indices = []
+
+    # Extract position names from previous row if available
+    position_names = []
+    if position_row_idx is not None and position_row_idx < len(table_data):
+        for i in range(1, len(table_data[position_row_idx])):
+            position_names.append(table_data[position_row_idx][i])
+
+    # Extract specs
+    for i in range(1, len(spec_row)):
+        cell = spec_row[i]
+        if re.search(r'[\d.]+[\+\-±]', cell):
+            spec_match = re.search(r'[\d.]+[\+\-]?[\d.]*[\+\-±]?[\d.]*', cell)
+            if spec_match:
+                specs.append(spec_match.group(0))
+                spec_col_indices.append(i)
+
+    if not specs:
+        return None
+
+    return {
+        'specs': specs,
+        'spec_col_indices': spec_col_indices,
+        'position_names': position_names
+    }
+
+
+def _extract_data_with_specs(table_data: List[List[str]], specs_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Extract data from data table using previously extracted specs.
+
+    Table structure:
+    Row 0: Header | 结果序号 | 测试结果(1) | 判定 | ...
+    Row 1+: Data | 1 | 27.85 | OK | ...
+    """
+    specs = specs_info['specs']
+    spec_col_indices = specs_info['spec_col_indices']
+    position_names = specs_info.get('position_names', [])
+
+    # Skip header row, start from data rows
+    data_start_idx = 1
+
+    measurement_sets = {i: [] for i in range(len(specs))}
+
+    for row_idx in range(data_start_idx, len(table_data)):
+        row = table_data[row_idx]
+
+        if len(row) < 2:
+            continue
+
+        first_cell = row[0] if row else ""
+        if not first_cell.isdigit():
+            continue
+
+        # Extract measurements using CORRECT column mapping
+        for i, spec_col_idx in enumerate(spec_col_indices):
+            data_col_idx = spec_col_idx * 2 - 1  # Same formula!
+
+            if data_col_idx < len(row):
+                val_str = row[data_col_idx]
+                try:
+                    val = float(val_str)
+                    measurement_sets[i].append(val)
+                except ValueError:
+                    pass
+
+    # Create dimension entries
+    dimensions = []
+    for i in range(len(specs)):
+        measurements = measurement_sets[i]
+        if len(measurements) >= 5:  # Need at least 5 for SPC
+            position_name = position_names[i] if i < len(position_names) else f'位置 {i+1}'
+            dimensions.append({
+                'position': position_name,
+                'spec': specs[i],
+                'measurements': measurements
+            })
 
     return dimensions
 
