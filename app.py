@@ -998,6 +998,16 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
         dimensions_data = []
         for dim_data in dimensions:
             try:
+                # Defensive: Ensure dim_data is a dict before processing
+                if not isinstance(dim_data, dict):
+                    st.warning(f"⚠️ Warning: Invalid dimension data type ({type(dim_data).__name__}). Skipping.")
+                    continue
+
+                # Ensure required fields exist
+                if 'position' not in dim_data or 'spec' not in dim_data or 'measurements' not in dim_data:
+                    st.warning(f"⚠️ Warning: Dimension missing required fields. Skipping.")
+                    continue
+
                 dim_result = parse_dimension_from_data(
                     dim_data['position'],
                     dim_data['spec'],
@@ -1006,7 +1016,8 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
                 dimensions_data.append(dim_result)
             except Exception as e:
                 import traceback
-                st.warning(f"Warning: Could not process dimension {dim_data.get('position', 'Unknown')}: {e}")
+                position_info = dim_data.get('position') if isinstance(dim_data, dict) else f"Invalid type: {type(dim_data).__name__}"
+                st.warning(f"⚠️ Warning: Could not process dimension '{position_info}': {str(e)[:100]}")
                 with st.expander("🔍 Full Error Details"):
                     st.code(traceback.format_exc(), language="python")
 
