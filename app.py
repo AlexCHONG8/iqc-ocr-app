@@ -373,7 +373,7 @@ class MinerUClient:
             return {
                 'success': True,
                 'state': first_result.get('state'),
-                'md_url': first_result.get('full_zip_url'),
+                'md_url': first_result.get('full_md_link'),  # Use markdown link, not ZIP
                 'err_msg': first_result.get('err_msg')
             }
         except Exception as e:
