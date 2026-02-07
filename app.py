@@ -266,13 +266,126 @@ class MinerUClient:
 # DATA EXTRACTION FROM OCR RESULTS
 # =============================================================================
 
+def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]:
+    """
+    Parse HTML tables from MinerU.net OCR output to extract dimension data.
+
+    Expected format:
+    <table>
+      <tr><td>检验位置</td><td>1</td><td>11</td><td>13</td></tr>
+      <tr><td>检验标准</td><td>27.80+0.10-0.00</td><td>Φ6.00±0.10</td><td>73.20+0.00-0.15</td></tr>
+      <tr><td>1</td><td>27.85</td><td>6.02</td><td>73.14</td></tr>
+      ...
+    </table>
+    """
+    dimensions = []
+
+    # Find all table tags and their content
+    table_pattern = r'<table>(.*?)</table>'
+    tables = re.findall(table_pattern, markdown_text, re.DOTALL)
+
+    for table_content in tables:
+        # Split table into rows
+        row_pattern = r'<tr>(.*?)</tr>'
+        rows = re.findall(row_pattern, table_content, re.DOTALL)
+
+        if len(rows) < 3:
+            continue
+
+        # Extract cells from each row
+        table_data = []
+        for row in rows:
+            # Extract all <td>...</td> cells
+            cell_pattern = r'<td[^>]*>(.*?)</td>'
+            cells = re.findall(cell_pattern, row, re.DOTALL)
+            # Clean cell content (remove HTML tags and extra whitespace)
+            clean_cells = []
+            for cell in cells:
+                clean = re.sub(r'<[^>]+>', '', cell)  # Remove HTML tags
+                clean = clean.strip()
+                clean_cells.append(clean)
+            table_data.append(clean_cells)
+
+        # Look for inspection table pattern
+        # First row should have "检验位置" (Inspection Position)
+        if not table_data or not any('检验位置' in cell or '位置' in cell for cell in table_data[0]):
+            continue
+
+        # Second row should have "检验标准" (Inspection Standard) with specs
+        spec_row_idx = None
+        for i, row in enumerate(table_data):
+            if any('检验标准' in cell or '标准' in cell for cell in row):
+                spec_row_idx = i
+                break
+
+        if spec_row_idx is None:
+            continue
+
+        # Extract position names and specs
+        spec_row = table_data[spec_row_idx]
+        positions = []
+        specs = []
+
+        # Skip first column (it's the label "检验标准")
+        for i in range(1, len(spec_row)):
+            cell = spec_row[i]
+            # Check if it looks like a spec (contains numbers and ±, +, -)
+            if re.search(r'[\d.]+[+\-±]', cell):
+                # This is a spec - extract it
+                spec_match = re.search(r'[\d.]+[+\-]?[\d.]*[+\-±]?[\d.]*', cell)
+                if spec_match:
+                    specs.append(spec_match.group(0))
+                    # Generate position name
+                    positions.append(f"位置 {len(positions) + 1}")
+
+        # Now extract measurements from data rows
+        # Data rows start after the spec row
+        measurement_sets = {i: [] for i in range(len(specs))}
+
+        for row_idx in range(spec_row_idx + 1, len(table_data)):
+            row = table_data[row_idx]
+
+            # Skip if this is a header row or summary row
+            if len(row) < 2:
+                continue
+
+            # Check if first cell is a number (sequence number)
+            first_cell = row[0] if row else ""
+            if not first_cell.isdigit():
+                continue
+
+            # Extract measurements for each position
+            # Position i's measurements are in column (i * 2 + 1) because each position has 2 columns (value + OK)
+            for i in range(len(specs)):
+                col_idx = i * 2 + 1  # Each position has value + OK columns
+                if col_idx < len(row):
+                    val_str = row[col_idx]
+                    # Try to parse as float
+                    try:
+                        val = float(val_str)
+                        measurement_sets[i].append(val)
+                    except ValueError:
+                        pass
+
+        # Create dimension entries
+        for i in range(len(specs)):
+            measurements = measurement_sets[i]
+            if len(measurements) >= 5:  # Need at least 5 for SPC
+                dimensions.append({
+                    'position': positions[i] if i < len(positions) else f'位置 {i+1}',
+                    'spec': specs[i],
+                    'measurements': measurements
+                })
+
+    return dimensions
+
 def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any]]:
     """
     Extract IQC data from OCR markdown output.
 
-    This function parses the OCR output to extract:
+    This function parses HTML tables from MinerU.net OCR output to extract:
     - Material information (name, code, batch, supplier, date)
-    - Dimension measurements
+    - Dimension measurements with specs
     - Specification limits
     """
     try:
@@ -291,7 +404,7 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
         for line in lines:
             # Material name patterns
             if re.search(r'(物料|产品|零件|名称|Material)', line, re.IGNORECASE):
-                match = re.search(r'[:：]\s*(.+?)(?:\s|$|,|，)', line)
+                match = re.search(r'[:：]\s*(.+?)(?:\s|$|<)', line)
                 if match:
                     meta['material_name'] = match.group(1).strip()
 
@@ -309,111 +422,18 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
 
             # Supplier patterns
             elif re.search(r'(供应商|厂家|Supplier)', line, re.IGNORECASE):
-                match = re.search(r'[:：]\s*(.+?)(?:\s|$|,|，)', line)
+                match = re.search(r'[:：]\s*(.+?)(?:\s|$|<)', line)
                 if match:
                     meta['supplier'] = match.group(1).strip()
 
             # Date patterns
-            elif re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', line):
-                match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', line)
+            elif re.search(r'(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', line):
+                match = re.search(r'(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', line)
                 if match:
-                    meta['date'] = match.group(1).replace('/', '-')
+                    meta['date'] = match.group(1).replace('/', '-').replace('.', '-')
 
-        # Extract dimension data from tables
-        dimensions = []
-
-        # Look for table patterns in markdown
-        table_pattern = r'\|.*\|'
-        table_lines = [line for line in lines if re.match(table_pattern, line)]
-
-        if len(table_lines) > 2:
-            # Parse markdown table
-            headers = [cell.strip() for cell in table_lines[0].split('|')[1:-1]]
-
-            # Find dimension column and measurement columns
-            dim_col_idx = None
-            measurement_indices = []
-
-            for i, header in enumerate(headers):
-                if re.search(r'(尺寸|部位|位置|项目|Dimension|Position)', header, re.IGNORECASE):
-                    dim_col_idx = i
-                elif re.search(r'\d', header):
-                    measurement_indices.append(i)
-
-            # Extract spec limits from header or nearby row
-            spec_str = "±0.10"  # Default spec
-            for line in lines:
-                if re.search(r'规格|公差|Spec|公差范围', line):
-                    match = re.search(r'[±]?\s*[\d.]+', line)
-                    if match:
-                        spec_str = match.group(0)
-
-            # Parse measurement rows
-            for table_line in table_lines[2:]:  # Skip header and separator rows
-                cells = [cell.strip() for cell in table_line.split('|')[1:-1]]
-
-                if dim_col_idx is not None and len(cells) > dim_col_idx:
-                    dim_name = cells[dim_col_idx]
-
-                    # Extract measurements
-                    measurements = []
-                    for idx in measurement_indices:
-                        if idx < len(cells):
-                            val_str = cells[idx].replace(',', '').replace('，', '')
-                            try:
-                                val = float(val_str)
-                                measurements.append(val)
-                            except ValueError:
-                                pass
-
-                    if len(measurements) >= 5:  # Need at least 5 for SPC
-                        dimensions.append({
-                            'position': dim_name,
-                            'spec': spec_str,
-                            'measurements': measurements
-                        })
-
-        # Fallback: Try to extract from free text
-        if not dimensions:
-            # Look for patterns like: "Dimension: 1.23, 1.24, 1.25, ..."
-            current_dim = None
-            for line in lines:
-                # Dimension name pattern
-                dim_match = re.search(r'^([A-Z][A-Z0-9\-]+|部位\d+|尺寸\d+)\s*[:：]?', line)
-                if dim_match:
-                    if current_dim and len(current_dim.get('measurements', [])) >= 5:
-                        dimensions.append(current_dim)
-                    current_dim = {'position': dim_match.group(1), 'spec': spec_str, 'measurements': []}
-
-                # Extract numbers from line
-                if current_dim is not None:
-                    numbers = re.findall(r'[\d.]+', line)
-                    for num_str in numbers:
-                        try:
-                            val = float(num_str)
-                            if 0.01 < val < 1000:  # Reasonable measurement range
-                                current_dim['measurements'].append(val)
-                        except ValueError:
-                            pass
-
-            if current_dim and len(current_dim.get('measurements', [])) >= 5:
-                dimensions.append(current_dim)
-
-        # Generate demo data if no data found (for testing)
-        if not dimensions:
-            st.warning("⚠️ Could not extract measurement data from OCR output. Using demo data for testing.")
-            dimensions = [
-                {
-                    'position': 'Demo-Dimension-1',
-                    'spec': 'Ø10.00±0.10',
-                    'measurements': [10.02, 9.98, 10.05, 9.97, 10.01, 9.99, 10.03, 10.00, 9.96, 10.04]
-                },
-                {
-                    'position': 'Demo-Dimension-2',
-                    'spec': '25.00±0.15',
-                    'measurements': [25.02, 24.98, 25.05, 24.92, 25.08, 24.95, 25.01, 24.99, 25.03, 24.97]
-                }
-            ]
+        # Extract dimension data from HTML tables
+        dimensions = parse_html_tables_for_dimensions(markdown_text)
 
         # Calculate statistics for each dimension
         dimensions_data = []
