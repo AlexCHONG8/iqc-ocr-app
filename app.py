@@ -474,15 +474,13 @@ class MinerUClient:
                     if task_result.get('success') and task_result.get('md_url'):
                         md_url = task_result.get('md_url')
 
-                # Fallback: derive md_link from zip_url
-                if not md_url and zip_url:
-                    md_url = self._derive_md_link_from_zip_url(zip_url)
-                    logger.debug(f"Derived md_link from zip_url: {md_url}")
+                # Use zip_url as fallback (download_markdown will extract full.md from ZIP)
+                download_url = md_url or zip_url
 
-                if md_url:
-                    return {'success': True, 'md_url': md_url}
+                if download_url:
+                    return {'success': True, 'md_url': download_url}
                 else:
-                    return {'success': False, 'error': 'Task done but no markdown URL available'}
+                    return {'success': False, 'error': 'Task done but no download URL available'}
             elif state == 'failed':
                 return {'success': False, 'error': status.get('err_msg', 'Processing failed')}
 
@@ -491,17 +489,43 @@ class MinerUClient:
         return {'success': False, 'error': 'Timeout waiting for processing'}
 
     def download_markdown(self, md_url: str) -> str:
-        """Download OCR results as markdown text."""
+        """Download OCR results as markdown text.
+
+        Handles both direct markdown URLs and ZIP URLs (extracts full.md).
+        """
         # Validate URL before making request
         if not md_url or not isinstance(md_url, str):
             return ""
 
+        log = logging.getLogger(__name__)
+
         try:
             response = requests.get(md_url, timeout=30)
             response.raise_for_status()
+
+            # If it's a ZIP file, extract full.md
+            if md_url.endswith('.zip') or response.headers.get('Content-Type') == 'application/zip':
+                import zipfile
+                import io
+
+                log.debug(f"Downloading ZIP file from {md_url}")
+                zip_content = response.content
+
+                with zipfile.ZipFile(io.BytesIO(zip_content)) as z:
+                    # Look for full.md in the ZIP
+                    if 'full.md' in z.namelist():
+                        md_content = z.read('full.md').decode('utf-8')
+                        log.debug(f"Extracted full.md from ZIP: {len(md_content)} characters")
+                        return md_content
+                    else:
+                        log.warning(f"full.md not found in ZIP. Files: {z.namelist()}")
+                        return ""
+
+            # Otherwise, treat as direct markdown text
             response.encoding = 'utf-8'
             return response.text
         except Exception as e:
+            log.error(f"Error downloading markdown: {e}")
             return ""
 
 # =============================================================================

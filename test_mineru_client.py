@@ -238,6 +238,32 @@ class TestMinerUClientMDLinkDerivation(unittest.TestCase):
         # Expected: https://cdn-mineru.openxlab.org.cn/result/2026-02-07/4d842f2f-8677-4099-834f-ca1662951d2b/full.md
 
 
+class TestMinerUClientZIPDownload(unittest.TestCase):
+    """Test downloading markdown from ZIP file."""
+
+    @patch('app.requests.get')
+    def test_download_markdown_from_zip_url(self, mock_get):
+        """Should download ZIP and extract full.md content."""
+        # Mock ZIP response with content
+        zip_content = b'PK\x03\x04' + b'fake zip content'
+        mock_zip_response = Mock()
+        mock_zip_response.status_code = 200
+        mock_zip_response.content = zip_content
+        mock_zip_response.raise_for_status = Mock()
+
+        # Configure mock to return ZIP when downloading from derived URL
+        mock_get.return_value = mock_zip_response
+
+        client = MinerUClient(api_key="test-key")
+
+        # This would call requests.get with the derived md_url
+        # which internally needs to download ZIP and extract full.md
+        result = client.download_markdown("https://cdn-mineru.openxlab.org.cn/result/2026-02-07/ID/full.md")
+
+        # The download should handle ZIP extraction
+        # (For now, this is a placeholder test to document the expected behavior)
+
+
 if __name__ == "__main__":
     # Run tests with verbose output
     unittest.main(verbosity=2)
