@@ -152,6 +152,27 @@ The application calculates the following metrics:
 - Check extracted data has valid measurements
 - Try downloading HTML instead of PDF
 
+## Recent Bug Fixes
+
+### ✅ Fixed: OCR Column Mapping (2026-02-07)
+
+**Issue**: Only 2 out of 3 measurement points were extracted from inspection tables.
+
+**Root Cause**: The column mapping logic used a fixed pattern (`1 + i * 2`) instead of actual column indices, causing missing measurements when spec columns had gaps.
+
+**Fix**: Updated `app.py:636` to use actual column index from `spec_col_indices`:
+```python
+# Before (buggy):
+data_col_idx = 1 + i * 2
+
+# After (fixed):
+data_col_idx = spec_col_idx
+```
+
+**Test Coverage**: Added `test_ocr_extraction.py` with TDD tests for non-contiguous column scenarios.
+
+**Verification**: All 3 measurement points now correctly extracted from tables with empty columns.
+
 ## System Requirements
 
 ### For Development (Local)

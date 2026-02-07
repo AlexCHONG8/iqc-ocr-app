@@ -629,12 +629,11 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
 
             # Now extract measurements
             # Each spec has corresponding columns in the data row
-            # The structure is: seq, pos1_val, pos1_status, pos2_val, pos2_status, ...
-            # So for spec i (0-indexed), the value is at column 1 + i*2
+            # Data rows have same column structure as spec row
+            # So if spec is at column j, data value is at column j
             for i, spec_col_idx in enumerate(spec_col_indices):
-                # Calculate the data column index based on spec position
-                # spec at column j corresponds to data at column 1 + j*2
-                data_col_idx = 1 + i * 2
+                # Use the actual column index from spec_col_indices
+                data_col_idx = spec_col_idx
 
                 if data_col_idx < len(row):
                     val_str = row[data_col_idx]
