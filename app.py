@@ -576,25 +576,40 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
     # Process tables sequentially with state tracking
     pending_specs = None
 
-    for table_data in all_tables:
+    for table_idx, table_data in enumerate(all_tables):
         table_type = _detect_table_type(table_data)
 
         if table_type == "SPECS_ONLY":
             # Extract specs, remember for next table
             pending_specs = _extract_specs_from_table(table_data)
+            logging.debug(f"Table {table_idx}: SPECS_ONLY - extracted {len(pending_specs.get('specs', [])) if pending_specs else 0} specs")
 
         elif table_type == "DATA_TABLE" and pending_specs:
             # Combine pending specs with this data table
             dims = _extract_data_with_specs(table_data, pending_specs)
+            logging.debug(f"Table {table_idx}: DATA_TABLE - extracted {len(dims)} dimensions")
+            for i, d in enumerate(dims):
+                logging.debug(f"  Dimension {i} type: {type(d).__name__}, value: {d}")
             dimensions.extend(dims)
             pending_specs = None
 
         elif table_type == "COMPLETE":
             # Single table with everything (backward compatible)
             dims = _extract_dimensions_from_table_data(table_data)
+            logging.debug(f"Table {table_idx}: COMPLETE - extracted {len(dims)} dimensions")
+            for i, d in enumerate(dims):
+                logging.debug(f"  Dimension {i} type: {type(d).__name__}, value: {d}")
             dimensions.extend(dims)
 
-        # UNKNOWN tables are skipped
+        else:
+            logging.debug(f"Table {table_idx}: {table_type} - skipping")
+
+    # Log final dimensions list
+    logging.debug(f"Total dimensions extracted: {len(dimensions)}")
+    for i, d in enumerate(dimensions):
+        logging.debug(f"Final dimension {i} type: {type(d).__name__}, is_dict: {isinstance(d, dict)}")
+        if isinstance(d, dict):
+            logging.debug(f"  Keys: {list(d.keys())}")
 
     return dimensions
 
@@ -994,6 +1009,13 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
         # Extract dimension data from HTML tables
         dimensions = parse_html_tables_for_dimensions(markdown_text)
 
+        # Debug logging
+        logging.info(f"Extracted {len(dimensions)} dimensions from OCR")
+        for i, dim in enumerate(dimensions):
+            logging.info(f"  Dimension {i}: type={type(dim).__name__}, is_dict={isinstance(dim, dict)}")
+            if not isinstance(dim, dict):
+                logging.error(f"    ❌ BUG: Dimension {i} is not a dict! Value: {dim}")
+
         # Calculate statistics for each dimension
         dimensions_data = []
         for dim_data in dimensions:
@@ -1117,6 +1139,14 @@ def render_upload_section():
         )
 
         if uploaded_file:
+            # Clear old session data when new file is uploaded
+            if 'uploaded_file' in st.session_state and st.session_state.uploaded_file != uploaded_file:
+                # New file uploaded - clear old data
+                st.session_state.ocr_results = None
+                st.session_state.iqc_data = None
+                st.session_state.processing = False
+                logging.info("Cleared old session data for new file upload")
+
             st.session_state.uploaded_file = uploaded_file
 
             # Success feedback
