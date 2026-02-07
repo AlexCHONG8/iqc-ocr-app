@@ -23,19 +23,17 @@ from typing import Dict, List, Any, Optional
 
 import streamlit as st
 import requests
-import PyPDF2
 
 # Add local modules to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Import existing SPC analysis module using dynamic import (directory has hyphen)
+# Dynamic import for hyphenated directory
 import importlib.util
 iqc_stats_path = Path(__file__).parent / "iqc-report" / "scripts" / "iqc_stats.py"
 spec = importlib.util.spec_from_file_location("iqc_stats", iqc_stats_path)
 iqc_stats = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(iqc_stats)
 
-# Make functions available directly
 calculate_subgroups = iqc_stats.calculate_subgroups
 calculate_process_capability = iqc_stats.calculate_process_capability
 calculate_control_limits = iqc_stats.calculate_control_limits
@@ -44,93 +42,243 @@ generate_iqc_data = iqc_stats.generate_iqc_data
 generate_html_report = iqc_stats.generate_html_report
 
 # =============================================================================
-# CONFIGURATION
+# CONFIGURATION & STYLING
 # =============================================================================
 
-# Page configuration
 st.set_page_config(
-    page_title="Summed Medtech - IQC OCR + SPC Analysis",
-    page_icon="📊",
+    page_title="Summed Medtech IQC",
+    page_icon="⚕️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Clinical Precision Interface - Professional Medical Aesthetic
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1e3a5f;
-        text-align: center;
-        margin-bottom: 1rem;
+    /* IMPORT PROFESSIONAL FONTS */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    /* BASE STYLES */
+    .main {
+        font-family: 'Inter', -apple-system, sans-serif;
     }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #64748b;
-        text-align: center;
-        margin-bottom: 2rem;
+
+    /* HEADER STYLES */
+    .clinical-header {
+        background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
-    .success-box {
-        background: #dcfce7;
-        border: 1px solid #16a34a;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+
+    .clinical-header h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        margin: 0;
+        letter-spacing: -0.025em;
     }
-    .warning-box {
-        background: #ffedd5;
-        border: 1px solid #ea580c;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+
+    .clinical-header .subtitle {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        margin-top: 0.5rem;
+        font-weight: 400;
     }
-    .info-box {
-        background: #dbeafe;
-        border: 1px solid #2563eb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+
+    .clinical-header .badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-top: 0.75rem;
+        backdrop-filter: blur(8px);
     }
-    .metric-card {
+
+    /* STATUS CARDS */
+    .status-card {
         background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .status-card:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .status-card.success { border-left: 4px solid #10b981; }
+    .status-card.warning { border-left: 4px solid #f59e0b; }
+    .status-card.error { border-left: 4px solid #ef4444; }
+    .status-card.info { border-left: 4px solid #3b82f6; }
+
+    /* PROGRESS STEPS */
+    .progress-step {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #f9fafb;
         border-radius: 8px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 0.5rem;
+        border: 1px solid #e5e7eb;
     }
+
+    .progress-step.active {
+        background: #ecfdf5;
+        border-color: #10b981;
+    }
+
+    .progress-step.completed {
+        background: #f0fdf4;
+        border-color: #22c55e;
+    }
+
+    .progress-step-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        margin-right: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .progress-step.active .progress-step-icon {
+        background: #10b981;
+        color: white;
+    }
+
+    .progress-step.completed .progress-step-icon {
+        background: #22c55e;
+        color: white;
+    }
+
+    /* METRIC DISPLAY */
     .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #2563eb;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.05em;
     }
+
     .metric-label {
-        font-size: 0.9rem;
+        font-size: 0.75rem;
         color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+
+    /* CODE PREVIEW */
+    .code-preview {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        line-height: 1.6;
+        border: 1px solid #334155;
+    }
+
+    /* DEBUG PANEL */
+    .debug-panel {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin: 1rem 0;
+    }
+
+    .debug-panel h4 {
+        color: #991b1b;
+        margin-top: 0;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    /* FOOTER */
+    .clinical-footer {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.8rem;
+        padding: 2rem 1rem;
+        border-top: 1px solid #e5e7eb;
+        margin-top: 3rem;
+    }
+
+    /* HIDE STREAMLIT ELEMENTS */
+    .stDeployButton { display: none; }
+
+    /* CUSTOM BUTTONS */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# SESSION STATE INITIALIZATION
+# DEMO DATA
 # =============================================================================
 
-def init_session_state():
-    """Initialize session state variables."""
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-    if 'uploaded_file' not in st.session_state:
-        st.session_state.uploaded_file = None
-    if 'ocr_results' not in st.session_state:
-        st.session_state.ocr_results = None
-    if 'iqc_data' not in st.session_state:
-        st.session_state.iqc_data = None
-    if 'report_generated' not in st.session_state:
-        st.session_state.report_generated = False
-    if 'processing_status' not in st.session_state:
-        st.session_state.processing_status = ""
-
-init_session_state()
+DEMO_DATA = {
+    'meta': {
+        'material_name': '推杆 (Push Rod)',
+        'material_code': '1M131AISI1011000',
+        'batch_no': 'JSR25121502',
+        'supplier': '思纳福 (Sinoflow)',
+        'date': '2025-12-15'
+    },
+    'dimensions': [
+        {
+            'name': '位置 1 - 长度',
+            'spec': '27.80+0.10-0.00',
+            'nominal': 27.80,
+            'usl': 27.90,
+            'lsl': 27.80,
+            'mean': 27.8314,
+            'std_dev_overall': 0.02195,
+            'cp': 0.759,
+            'cpk': 0.477,
+            'pp': 0.760,
+            'ppk': 0.480,
+            'conclusion': '合格-过程不稳 (Cpk: 0.48)',
+            'suggestion': '【红色警示】过程能力不足 (Cpk<1.0)。建议：1.检查设备精度；2.反馈供方调整工艺；3.增加抽样频次。',
+            'measurements': [27.85, 27.84, 27.81, 27.82, 27.85, 27.84, 27.82, 27.85, 27.81, 27.84] * 5
+        },
+        {
+            'name': '位置 2 - 直径',
+            'spec': 'Φ6.00±0.10',
+            'nominal': 6.00,
+            'usl': 6.10,
+            'lsl': 5.90,
+            'mean': 6.0262,
+            'std_dev_overall': 0.02415,
+            'cp': 1.38,
+            'cpk': 1.02,
+            'pp': 1.38,
+            'ppk': 1.02,
+            'conclusion': '合格-过程能力尚可 (Cpk: 1.02)',
+            'suggestion': '过程能力尚可，但仍有改进空间。建议持续监控过程表现。',
+            'measurements': [6.02, 6.02, 6.01, 6.01, 6.06, 6.02, 6.04, 6.02, 6.03, 6.03] * 5
+        }
+    ]
+}
 
 # =============================================================================
 # MINERU.NET API CLIENT
@@ -259,7 +407,6 @@ class MinerUClient:
             response.encoding = 'utf-8'
             return response.text
         except Exception as e:
-            st.error(f"Failed to download markdown: {e}")
             return ""
 
 # =============================================================================
@@ -471,9 +618,8 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
             meta['date'],
             dimensions_data
         )
-
     except Exception as e:
-        st.error(f"❌ Error extracting IQC data: {e}")
+        st.error(f"❌ Error extracting data: {e}")
         return None
 
 # =============================================================================
@@ -481,77 +627,67 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
 # =============================================================================
 
 def render_header():
-    """Render application header."""
-    st.markdown('<div class="main-header">🏢 Summed Medtech - IQC OCR + SPC Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Incoming Quality Control with Statistical Process Control | Internal Use Only</div>', unsafe_allow_html=True)
-    st.markdown("---")
+    """Render professional header with Summed Medtech branding."""
+    st.markdown("""
+    <div class="clinical-header">
+        <h1>⚕️ Summed Medtech - IQC Analysis</h1>
+        <div class="subtitle">Incoming Quality Control with Statistical Process Control</div>
+        <div class="badge">INTERNAL USE ONLY</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Render sidebar with settings and info."""
+    """Render sidebar with app info and controls."""
     with st.sidebar:
         st.markdown("## 🏢 Summed Medtech")
+
         st.markdown("**Internal Quality Control System**")
+
         st.markdown("---")
+
+        st.markdown("### 📋 App Status")
+
+        # Demo mode toggle - uses key="demo_mode" to auto-manage session_state
+        st.checkbox("🎯 Demo Mode",
+                   help="Use sample data for testing without OCR processing",
+                   value=False,
+                   key="demo_mode")
+
+        # Debug mode toggle - uses key="debug_mode" to auto-manage session_state
+        st.checkbox("🔍 Debug Mode",
+                   help="Show OCR raw results and extraction details",
+                   value=False,
+                   key="debug_mode")
+
+        st.markdown("---")
+
+        st.markdown("### 📖 Workflow Steps")
+        st.markdown("""
+        1. 📤 Upload PDF report
+        2. 🚀 Start OCR processing
+        3. 🔍 Extract dimension data
+        4. 📊 Review statistics
+        5. 📄 Generate report
+        """)
+
+        st.markdown("---")
+
         st.markdown("> ⚠️ **INTERNAL USE ONLY**")
         st.markdown("> Confidential and proprietary")
-        st.markdown("> For authorized personnel only")
 
         st.markdown("---")
-        st.markdown("### ℹ️ About")
-        st.markdown("""
-        This application processes handwritten inspection reports with OCR and generates ISO 13485 compliant statistical analysis reports.
 
-        **Features:**
-        - PDF OCR recognition (109 languages)
-        - 6SPC statistical analysis
-        - Interactive control charts
-        - Process capability indices (Cp, Cpk, Pp, Ppk)
-        """)
+        st.markdown("### 🔗 Quick Links")
+        st.markdown("- [MinerU.net](https://mineru.net)")
+        st.markdown("- [API Docs](https://mineru.net/doc/docs/)")
 
         st.markdown("---")
-        st.markdown("### 📋 Instructions")
-        st.markdown("""
-        1. Upload a scanned PDF report
-        2. Wait for OCR processing
-        3. Review extracted data
-        4. Generate and download report
-        """)
 
-        st.markdown("---")
-        st.markdown("### 🔧 System Status")
-        api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
-        if api_key:
-            st.markdown("✅ MinerU.net API: Connected")
-        else:
-            st.markdown("⚠️ MinerU.net API: Not configured")
-
-def render_password_protection():
-    """Render password protection for team access."""
-    if not st.session_state.authenticated:
-        st.markdown("<h3 style='text-align: center;'>🔐 Team Access</h3>", unsafe_allow_html=True)
-
-        col1, col2, col3 = st.columns([1, 2, 1])
-
-        with col2:
-            password = st.text_input("Enter Access Password", type="password", key="password_input")
-
-            if st.button("Login", use_container_width=True):
-                # Check password (you can change this)
-                correct_password = os.getenv("APP_PASSWORD", "iqc2024")
-
-                if password == correct_password:
-                    st.session_state.authenticated = True
-                    st.rerun()
-                else:
-                    st.error("❌ Incorrect password")
-
-        st.markdown("<br><br><p style='text-align: center; color: #64748b;'>Contact administrator for access</p>", unsafe_allow_html=True)
-        return False
-
-    return True
+        st.markdown(f"<small>© {datetime.now().year} Summed Medtech</small>",
+                   unsafe_allow_html=True)
 
 def render_upload_section():
-    """Render PDF upload section."""
+    """Render PDF upload section with visual feedback."""
     st.markdown("### 📤 Upload Inspection Report")
 
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -560,189 +696,404 @@ def render_upload_section():
         uploaded_file = st.file_uploader(
             "Select a PDF file",
             type=['pdf'],
-            label_visibility="collapsed",
-            help="Upload scanned inspection report (max 200MB)"
+            label_visibility="visible",
+            help="Upload scanned inspection report (max 200MB)",
+            accept_multiple_files=False
         )
 
         if uploaded_file:
             st.session_state.uploaded_file = uploaded_file
-            st.success(f"✅ File uploaded: {uploaded_file.name}")
 
-            # Show file info
-            with st.expander("📄 File Information"):
-                st.json({
-                    "Name": uploaded_file.name,
-                    "Size": f"{uploaded_file.size / 1024 / 1024:.2f} MB",
-                    "Type": uploaded_file.type
-                })
+            # Success feedback
+            st.markdown(f"""
+            <div class="status-card success">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.5rem;">✅</span>
+                    <div>
+                        <div style="font-weight: 600; color: #065f46;">File Ready</div>
+                        <div style="font-size: 0.875rem; color: #047857;">{uploaded_file.name}</div>
+                        <div style="font-size: 0.75rem; color: #64748b;">{uploaded_file.size / 1024 / 1024:.2f} MB</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    return st.session_state.uploaded_file
+    return uploaded_file if not st.session_state.get('demo_mode', False) else "DEMO_MODE"
 
 def render_processing_section(uploaded_file):
-    """Render OCR processing section."""
+    """Render OCR processing section with step-by-step progress."""
     st.markdown("### ⚙️ OCR Processing")
 
+    if uploaded_file == "DEMO_MODE":
+        st.info("🎯 Demo Mode: Using sample data - no PDF processing needed")
+        st.session_state.ocr_results = "DEMO_MODE"
+        return "DEMO_MODE"
+
     if not uploaded_file:
-        st.info("👆 Please upload a PDF file first.")
+        st.markdown("""
+        <div class="status-card info">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">📁</span>
+                <div>
+                    <div style="font-weight: 500; color: #1e40af;">Upload PDF First</div>
+                    <div style="font-size: 0.875rem; color: #64748b;">Select a PDF inspection report to begin processing</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return None
 
-    # Get API key from Streamlit secrets or environment
+    # API Key check
     api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
 
     if not api_key:
-        st.error("""
-        ❌ MinerU.net API key not configured.
-
-        Please add `MINERU_API_KEY` to `.streamlit/secrets.toml` or Streamlit Cloud settings.
-
-        **Get your API key at:** https://mineru.net
-        """)
+        st.markdown(f"""
+        <div class="status-card error">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">🔑</span>
+                <div>
+                    <div style="font-weight: 600; color: #991b1b;">API Key Not Configured</div>
+                    <div style="font-size: 0.875rem; color: #7f1d1d;">
+                        Add <code>MINERU_API_KEY</code> to Streamlit Cloud secrets<br/>
+                        <a href="https://mineru.net" target="_blank">Get API Key →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return None
 
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
-        if st.button("🚀 Start OCR Processing", type="primary", use_container_width=True, disabled=st.session_state.get('processing', False)):
+        if st.button("🚀 Start OCR Processing", type="primary", use_container_width=True,
+                   disabled=st.session_state.get('processing', False)):
             st.session_state.processing = True
 
-            with st.spinner("🔄 Uploading and processing PDF... This may take 1-2 minutes."):
-                try:
-                    # Initialize client
-                    client = MinerUClient(api_key)
+            # Progress steps container
+            progress_container = st.container()
 
-                    # Upload PDF
-                    pdf_bytes = uploaded_file.read()
-                    upload_result = client.upload_pdf(pdf_bytes, uploaded_file.name)
+            with progress_container:
+                st.markdown("""
+                <div class="progress-step active">
+                    <div class="progress-step-icon">1</div>
+                    <div>
+                        <div style="font-weight: 600;">Uploading PDF...</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">Sending to MinerU.net OCR service</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-                    if not upload_result.get('success'):
-                        st.error(f"❌ Upload failed: {upload_result.get('error')}")
+            try:
+                client = MinerUClient(api_key)
+                pdf_bytes = uploaded_file.read()
+
+                # Upload
+                with st.spinner("Uploading PDF..."):
+                    upload_result = client.upload_pdf(pdf_bytes, uploaded_file.name())
+
+                if not upload_result.get('success'):
+                    st.markdown(f"""
+                    <div class="status-card error">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.5rem;">❌</span>
+                            <div>
+                                <div style="font-weight: 600; color: #991b1b;">Upload Failed</div>
+                                <div style="font-size: 0.875rem; color: #7f1d1d;">{upload_result.get('error', 'Unknown error')}</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.session_state.processing = False
+                    return None
+
+                batch_id = upload_result.get('batch_id')
+
+                with progress_container:
+                    st.markdown("""
+                    <div class="progress-step completed">
+                        <div class="progress-step-icon">✓</div>
+                        <div>
+                            <div style="font-weight: 600;">PDF Uploaded</div>
+                            <div style="font-size: 0.875rem; color: #059669;">Batch ID: {batch_id[:12]}...</div>
+                        </div>
+                    </div>
+                    <div class="progress-step active">
+                        <div class="progress-step-icon">2</div>
+                        <div>
+                            <div style="font-weight: 600;">Processing...</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">Extracting text & tables (1-2 min)</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Wait for completion with progress
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                result = client.wait_for_completion(batch_id, timeout=300)
+
+                if result.get('success'):
+                    progress_bar.progress(1.0)
+                    status_text.text("✅ Processing complete!")
+
+                    # Download markdown
+                    md_url = result.get('md_url')
+                    markdown_text = client.download_markdown(md_url)
+
+                    if markdown_text:
+                        st.session_state.ocr_results = markdown_text
+
+                        with progress_container:
+                            st.markdown("""
+                            <div class="progress-step completed">
+                                <div class="progress-step-icon">✓</div>
+                                <div>
+                                    <div style="font-weight: 600;">Processing Complete</div>
+                                    <div style="font-size: 0.875rem; color: #059669;">OCR extraction successful</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        # Debug mode: Show raw OCR results
+                        if st.session_state.get('debug_mode', False):
+                            with st.expander("🔍 Raw OCR Results (Debug)", expanded=False):
+                                st.markdown("#### 📝 Extracted Markdown Preview")
+                                st.markdown(f"*First 2000 characters:*")
+                                st.code(markdown_text[:2000], language="markdown")
+                                st.markdown(f"*Total length: {len(markdown_text)} characters*")
+
+                    else:
+                        st.error("Failed to download OCR results")
                         st.session_state.processing = False
                         return None
-
-                    batch_id = upload_result.get('batch_id')
-                    st.info(f"✅ PDF uploaded. Batch ID: {batch_id}")
-
-                    # Create progress bar
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-
-                    # Wait for completion
-                    max_wait = 300  # 5 minutes
-                    waited = 0
-                    check_interval = 5
-
-                    while waited < max_wait:
-                        time.sleep(check_interval)
-                        waited += check_interval
-
-                        progress = min(waited / 120, 0.9)  # Assume 2 minutes is 90%
-                        progress_bar.progress(progress)
-                        status_text.text(f"Processing... ({waited}s elapsed)")
-
-                        result = client.check_task_status(batch_id)
-
-                        if result.get('success'):
-                            state = result.get('state')
-                            if state == 'done':
-                                progress_bar.progress(1.0)
-                                status_text.text("✅ Processing complete!")
-
-                                md_url = result.get('md_url')
-                                markdown_text = client.download_markdown(md_url)
-
-                                st.session_state.ocr_results = markdown_text
-
-                                st.success("✅ OCR processing completed successfully!")
-                                st.session_state.processing = False
-                                break
-                            elif state == 'failed':
-                                st.error(f"❌ Processing failed: {result.get('err_msg', 'Unknown error')}")
-                                st.session_state.processing = False
-                                break
-                        else:
-                            st.warning(f"⚠️ Checking status...")
-
-                    if waited >= max_wait:
-                        st.warning("⏱️ Processing is taking longer than expected. Please check back later.")
-                        st.session_state.processing = False
-
-                except Exception as e:
-                    st.error(f"❌ Error during processing: {e}")
+                else:
+                    st.markdown(f"""
+                    <div class="status-card error">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.5rem;">⚠️</span>
+                            <div>
+                                <div style="font-weight: 600; color: #991b1b;">Processing Failed</div>
+                                <div style="font-size: 0.875rem; color: #7f1d1d;">{result.get('error', 'Unknown error')}</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.session_state.processing = False
+                    return None
 
-        # Show results if available
-        if st.session_state.ocr_results:
-            with st.expander("📝 OCR Results (Markdown)", expanded=False):
-                st.text(st.session_state.ocr_results[:2000] + "..." if len(st.session_state.ocr_results) > 2000 else st.session_state.ocr_results)
+            except Exception as e:
+                st.markdown(f"""
+                <div class="status-card error">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">⚠️</span>
+                        <div>
+                            <div style="font-weight: 600; color: #991b1b;">Processing Error</div>
+                            <div style="font-size: 0.875rem; color: #7f1d1d;">{str(e)}</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.session_state.processing = False
+                return None
 
-            return st.session_state.ocr_results
+            st.session_state.processing = False
 
-    return st.session_state.ocr_results
+    # Show results if available
+    if st.session_state.get('ocr_results') and st.session_state.ocr_results != "DEMO_MODE":
+        st.markdown("""
+        <div class="status-card success">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">✅</span>
+                <div>
+                    <div style="font-weight: 600; color: #065f46;">OCR Complete</div>
+                    <div style="font-size: 0.875rem; color: #047857;">Ready to extract dimension data</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    return st.session_state.get('ocr_results')
 
 def render_data_extraction_section(ocr_text):
-    """Render data extraction and validation section."""
+    """Render data extraction section with debugging and validation."""
     st.markdown("### 🔍 Extract & Validate Data")
 
     if not ocr_text:
-        st.info("⏳ Complete OCR processing first to extract data.")
+        st.markdown("""
+        <div class="status-card info">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">⏳</span>
+                <div>
+                    <div style="font-weight: 500; color: #1e40af;">Waiting for OCR Results</div>
+                    <div style="font-size: 0.875rem; color: #64748b;">Complete OCR processing first to extract data</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return None
 
-    if st.button("🔍 Extract IQC Data", type="secondary", use_container_width=True):
-        with st.spinner("🔄 Extracting measurement data and calculating statistics..."):
-            iqc_data = extract_iqc_data_from_markdown(ocr_text)
+    if ocr_text == "DEMO_MODE":
+        st.session_state.iqc_data = DEMO_DATA
+        return DEMO_DATA
 
-            if iqc_data:
-                st.session_state.iqc_data = iqc_data
-                st.success("✅ Data extracted successfully!")
+    # Debug mode: Show parsing analysis
+    if st.session_state.get('debug_mode', False):
+        with st.expander("🔍 Debug: OCR Analysis", expanded=False):
+            st.markdown("#### 📊 Parsing Diagnostics")
 
-    # Display extracted data
-    if st.session_state.iqc_data:
-        data = st.session_state.iqc_data
+            # Count tables found
+            table_count = len(re.findall(r'<table>', ocr_text))
+            st.metric("Tables Found", table_count)
 
-        # Show metadata
-        cols = st.columns(5)
-        with cols[0]:
-            st.metric("Material", data['meta']['material_name'][:20])
-        with cols[1]:
-            st.metric("Code", data['meta']['material_code'])
-        with cols[2]:
-            st.metric("Batch", data['meta']['batch_no'])
-        with cols[3]:
-            st.metric("Supplier", data['meta']['supplier'][:15])
-        with cols[4]:
-            st.metric("Date", data['meta']['date'])
+            # Look for dimension table
+            has_position_table = bool(re.search(r'检验位置', ocr_text))
+            has_spec_table = bool(re.search(r'检验标准', ocr_text))
+            st.metric("Has Position Table", "✓" if has_position_table else "✗")
+            st.metric("Has Spec Table", "✓" if has_spec_table else "✗")
 
-        st.markdown("---")
+            # Sample raw text
+            st.markdown("#### 📝 Sample Raw Text (First 500 chars)")
+            st.code(ocr_text[:500], language="text")
 
-        # Show dimensions
-        st.markdown("#### 📏 Extracted Dimensions")
+    col1, col2, col3 = st.columns([1, 2, 1])
 
-        for dim in data['dimensions']:
-            with st.expander(f"🔬 {dim['name']} - Spec: {dim['spec']}", expanded=False):
-                col1, col2, col3, col4 = st.columns(4)
+    with col2:
+        extract_button = st.button("🔍 Extract IQC Data", type="primary", use_container_width=True)
 
-                with col1:
-                    st.metric("Cp", f"{dim['cp']:.3f}",
-                             delta_color="normal" if dim['cpk'] >= 1.33 else "inverse")
-                with col2:
-                    st.metric("Cpk", f"{dim['cpk']:.3f}",
-                             delta_color="normal" if dim['cpk'] >= 1.33 else "inverse")
-                with col3:
-                    st.metric("Mean", f"{dim['mean']:.4f}")
-                with col4:
-                    st.metric("Std Dev", f"{dim['std_dev_overall']:.5f}")
+    if extract_button or st.session_state.get('iqc_data'):
+        if not st.session_state.get('iqc_data'):
+            with st.spinner("🔄 Extracting measurement data and calculating statistics..."):
+                iqc_data = extract_iqc_data_from_markdown(ocr_text)
 
-                st.markdown(f"**Status:** {dim['conclusion']}")
-                st.markdown(f"**Suggestion:** {dim['suggestion']}")
+                if iqc_data:
+                    st.session_state.iqc_data = iqc_data
 
-                st.markdown("**Measurements:**")
-                st.dataframe(
-                    {'Value': dim['measurements']},
-                    use_container_width=True,
-                    height=150
-                )
+                    st.markdown("""
+                    <div class="status-card success">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <div>
+                                <div style="font-weight: 600; color: #065f46;">Data Extracted Successfully</div>
+                                <div style="font-size: 0.875rem; color: #047857;">{len(iqc_data['dimensions'])} dimension(s) found</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Show detailed error guidance
+                    st.markdown("""
+                    <div class="debug-panel">
+                        <h4>🔍 Extraction Failed - Troubleshooting Guide</h4>
 
-        return st.session_state.iqc_data
+                        <div style="font-size: 0.875rem; color: #7f1d1d;">
+                            <strong>Possible issues:</strong>
+                            <ol style="margin: 0.5rem 0; padding-left: 1.25rem;">
+                                <li>PDF format doesn't match expected template</li>
+                                <li>OCR didn't capture dimension tables correctly</li>
+                                <li>Table structure is different from expected format</li>
+                            </ol>
+                        </div>
+
+                        <div style="margin-top: 1rem; font-size: 0.875rem;">
+                            <strong>📝 Try these steps:</strong>
+                            <ol style="margin: 0.5rem 0; padding-left: 1.25rem;">
+                                <li>Enable <strong>Debug Mode</strong> in sidebar to see OCR results</li>
+                                <li>Check if the PDF has dimension measurement tables</li>
+                                <li>Ensure PDF is clear and high-resolution</li>
+                                <li>Try with a different inspection report format</li>
+                            </ol>
+                        </div>
+
+                        <div style="margin-top: 1rem;">
+                            <st>💡 <strong>Tip:</strong> Use Demo Mode above to test the app with sample data.</st>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        # Display extracted data
+        if st.session_state.get('iqc_data'):
+            data = st.session_state.iqc_data
+
+            # Metadata
+            st.markdown("#### 📋 Material Information")
+
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.metric("Material", data['meta']['material_name'][:15])
+            with col2:
+                st.metric("Code", data['meta']['material_code'])
+            with col3:
+                st.metric("Batch", data['meta']['batch_no'])
+            with col4:
+                st.metric("Supplier", data['meta']['supplier'][:12])
+            with col5:
+                st.metric("Date", data['meta']['date'])
+
+            st.markdown("---")
+
+            # Dimensions
+            st.markdown("#### 📏 SPC Analysis Results")
+
+            for dim in data['dimensions']:
+                # Color code based on Cpk
+                cpk = dim['cpk']
+                if cpk >= 1.33:
+                    status_color = "#10b981"  # Green
+                    status_icon = "✅"
+                elif cpk >= 1.0:
+                    status_color = "#f59e0b"  # Yellow
+                    status_icon = "⚠️"
+                else:
+                    status_color = "#ef4444"  # Red
+                    status_icon = "❌"
+
+                with st.expander(f"{status_icon} {dim['name']} - {dim['spec']}", expanded=False):
+                    # Metrics row
+                    mcol1, mcol2, mcol3, mcol4, mcol5 = st.columns(5)
+
+                    with mcol1:
+                        st.markdown(f"<div class='metric-label'>Cp</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-value' style='color: {status_color};'>{dim['cp']:.3f}</div>", unsafe_allow_html=True)
+
+                    with mcol2:
+                        st.markdown(f"<div class='metric-label'>Cpk</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-value' style='color: {status_color};'>{dim['cpk']:.3f}</div>", unsafe_allow_html=True)
+
+                    with mcol3:
+                        st.markdown(f"<div class='metric-label'>Mean</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-value'>{dim['mean']:.4f}</div>", unsafe_allow_html=True)
+
+                    with mcol4:
+                        st.markdown(f"<div class='metric-label'>Std Dev</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-value'>{dim['std_dev_overall']:.5f}</div>", unsafe_allow_html=True)
+
+                    with mcol5:
+                        st.markdown(f"<div class='metric-label'>Samples</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-value'>{len(dim['measurements'])}</div>", unsafe_allow_html=True)
+
+                    st.markdown("---")
+
+                    # Conclusion
+                    st.markdown(f"**Status:** {dim['conclusion']}")
+
+                    # Suggestion
+                    if "不足" in dim['suggestion'] or "红色" in dim['suggestion']:
+                        st.markdown(f"<span style='color: #dc2626;'>**Recommendation:** {dim['suggestion']}</span>", unsafe_allow_html=True)
+                    elif "尚可" in dim['suggestion']:
+                        st.markdown(f"<span style='color: #d97706;'>**Recommendation:** {dim['suggestion']}</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**Recommendation:** {dim['suggestion']}")
+
+                    # Measurements
+                    with st.expander("📊 View All Measurements", expanded=False):
+                        st.dataframe(
+                            {'Value': dim['measurements']},
+                            use_container_width=True,
+                            height=200
+                        )
+
+            return st.session_state.iqc_data
 
     return None
 
@@ -751,61 +1102,83 @@ def render_report_section(iqc_data):
     st.markdown("### 📊 Generate Report")
 
     if not iqc_data:
-        st.info("👆 Extract data first to generate a report.")
+        st.markdown("""
+        <div class="status-card info">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">📋</span>
+                <div>
+                    <div style="font-weight: 500; color: #1e40af;">Extract Data First</div>
+                    <div style="font-size: 0.875rem; color: #64748b;">Generate SPC report after extracting dimension data</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return
 
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
-        # Report options
         report_format = st.radio(
-            "Report Format",
-            ["HTML (Interactive)", "PDF (Static)"],
+            "Format",
+            ["HTML (Interactive)", "PDF (via Browser Print)"],
             horizontal=True
         )
 
         if st.button("📄 Generate Report", type="primary", use_container_width=True):
             with st.spinner("🔄 Generating report..."):
                 try:
-                    # Use existing template and function
                     template_path = Path(__file__).parent / "iqc-report" / "assets" / "iqc_template.html"
 
-                    # Read template
-                    html_content = template_path.read_text(encoding="utf-8")
+                    if not template_path.exists():
+                        st.error(f"Template not found at: {template_path}")
+                        return
 
-                    # Inject data
+                    html_content = template_path.read_text(encoding='utf-8')
                     data_json = json.dumps(iqc_data, ensure_ascii=False, indent=8)
                     html_content = html_content.replace("const iqcData = {};", f"const iqcData = {data_json};")
 
-                    # Save to temp file
                     report_filename = f"IQC_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    st.session_state.report_generated = True
+                    st.session_state.report_content = html_content
+                    st.session_state.report_filename = report_filename
 
-                    if report_format == "HTML (Interactive)":
-                        # Provide HTML download
-                        st.session_state.report_generated = True
-                        st.session_state.report_content = html_content
-                        st.session_state.report_filename = report_filename
+                    st.markdown("""
+                    <div class="status-card success">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <div>
+                                <div style="font-weight: 600; color: #065f46;">Report Generated Successfully</div>
+                                <div style="font-size: 0.875rem; color: #047857;">Ready to download</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                        st.success("✅ Report generated successfully!")
+                    # Download button
+                    st.download_button(
+                        label="📥 Download HTML Report",
+                        data=html_content.encode('utf-8'),
+                        file_name=report_filename,
+                        mime='text/html',
+                        use_container_width=True
+                    )
 
-                        # Download button
-                        st.download_button(
-                            label="📥 Download HTML Report",
-                            data=html_content.encode('utf-8'),
-                            file_name=report_filename,
-                            mime='text/html',
-                            use_container_width=True
-                        )
-
-                        # Preview
-                        st.markdown("#### 📋 Report Preview")
-                        st.components.v1.html(html_content, height=800, scrolling=True)
-
-                    else:
-                        st.info("📝 PDF generation requires additional setup. Download HTML and open in browser, then use 'Print to PDF'.")
+                    # Preview
+                    st.markdown("#### 📋 Report Preview")
+                    st.components.v1.html(html_content, height=800, scrolling=True)
 
                 except Exception as e:
-                    st.error(f"❌ Error generating report: {e}")
+                    st.markdown(f"""
+                    <div class="status-card error">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.5rem;">❌</span>
+                            <div>
+                                <div style="font-weight: 600; color: #991b1b;">Report Generation Failed</div>
+                                <div style="font-size: 0.875rem; color: #7f1d1d;">{str(e)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 # =============================================================================
 # MAIN APPLICATION
@@ -813,13 +1186,14 @@ def render_report_section(iqc_data):
 
 def main():
     """Main application entry point."""
-    # Render UI components
+    # Reset session state for demo mode changes
+    if 'demo_mode' not in st.session_state:
+        st.session_state.demo_mode = False
+    if 'debug_mode' not in st.session_state:
+        st.session_state.debug_mode = False
+
     render_header()
     render_sidebar()
-
-    # Password protection (can be disabled for public access)
-    # if not render_password_protection():
-    #     return
 
     # Main workflow
     uploaded_file = render_upload_section()
@@ -834,13 +1208,12 @@ def main():
                 render_report_section(iqc_data)
 
     # Footer
-    st.markdown("---")
     st.markdown("""
-    <div style='text-align: center; color: #64748b; font-size: 0.9rem;'>
-    <p><strong>© Summed Medtech</strong> - Internal Quality Control System</p>
-    <p>⚠️ <strong>INTERNAL USE ONLY</strong> - Confidential and Proprietary</p>
-    <p>🔧 Powered by <a href='https://mineru.net' target='_blank'>MinerU.net</a> | ISO 13485 Compliant</p>
-    <p>💡 <strong>Tip:</strong> For best results, use clear, high-resolution scans of inspection reports.</p>
+    <div class="clinical-footer">
+        <p><strong>© Summed Medtech</strong> - Internal Quality Control System</p>
+        <p>⚠️ <strong>INTERNAL USE ONLY</strong> - Confidential and Proprietary</p>
+        <p>🔧 Powered by <a href="https://mineru.net" target="_blank" style="color: #0d9488;">MinerU.net</a> | ISO 13485 Compliant</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">💡 For best results: Use clear, high-resolution scans of inspection reports</p>
     </div>
     """, unsafe_allow_html=True)
 
