@@ -394,6 +394,7 @@ class MinerUClient:
                 'success': True,
                 'state': first_result.get('state'),
                 'md_url': first_result.get('full_md_link'),  # Use markdown link, not ZIP
+                'zip_url': first_result.get('full_zip_url'),  # Also return ZIP URL for fallback
                 'err_msg': first_result.get('err_msg')
             }
         except Exception as e:
@@ -431,6 +432,27 @@ class MinerUClient:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    def _derive_md_link_from_zip_url(self, zip_url: str) -> Optional[str]:
+        """Derive full_md_link from full_zip_url.
+
+        Pattern:
+        - ZIP: https://cdn-mineru.openxlab.org.cn/pdf/2026-02-07/ID.zip
+        - MD:  https://cdn-mineru.openxlab.org.cn/result/2026-02-07/ID/full.md
+        """
+        if not zip_url:
+            return None
+
+        # Replace /pdf/ with /result/
+        # Replace .zip with /full.md
+        try:
+            if '/pdf/' in zip_url and zip_url.endswith('.zip'):
+                md_link = zip_url.replace('/pdf/', '/result/').replace('.zip', '/full.md')
+                return md_link
+        except Exception:
+            pass
+
+        return None
+
     def wait_for_completion(self, batch_id: str, timeout: int = 300) -> Dict[str, Any]:
         """Wait for OCR batch task to complete."""
         start_time = time.time()
@@ -443,10 +465,22 @@ class MinerUClient:
 
             state = status.get('state')
             if state == 'done':
-                # Use tasks endpoint to get full_md_link (batch endpoint doesn't return it)
-                task_result = self.get_task_from_tasks_endpoint(batch_id)
-                if task_result.get('success') and task_result.get('md_url'):
-                    return {'success': True, 'md_url': task_result.get('md_url')}
+                md_url = status.get('md_url')
+                zip_url = status.get('zip_url')
+
+                # Try tasks endpoint first for full_md_link
+                if not md_url:
+                    task_result = self.get_task_from_tasks_endpoint(batch_id)
+                    if task_result.get('success') and task_result.get('md_url'):
+                        md_url = task_result.get('md_url')
+
+                # Fallback: derive md_link from zip_url
+                if not md_url and zip_url:
+                    md_url = self._derive_md_link_from_zip_url(zip_url)
+                    logger.debug(f"Derived md_link from zip_url: {md_url}")
+
+                if md_url:
+                    return {'success': True, 'md_url': md_url}
                 else:
                     return {'success': False, 'error': 'Task done but no markdown URL available'}
             elif state == 'failed':

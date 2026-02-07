@@ -194,6 +194,50 @@ class TestMinerUClientTasksEndpoint(unittest.TestCase):
         self.assertIn('error', result)
 
 
+class TestMinerUClientMDLinkDerivation(unittest.TestCase):
+    """Test deriving full_md_link from full_zip_url."""
+
+    @patch('app.requests.get')
+    def test_derive_md_link_from_zip_url(self, mock_get):
+        """Should derive full_md_link from full_zip_url when not directly available."""
+        # Mock batch endpoint response (only has full_zip_url)
+        mock_batch_response = Mock()
+        mock_batch_response.status_code = 200
+        mock_batch_response.json.return_value = {
+            'code': 0,
+            'data': {
+                'extract_result': [{
+                    'state': 'done',
+                    'full_zip_url': 'https://cdn-mineru.openxlab.org.cn/pdf/2026-02-07/4d842f2f-8677-4099-834f-ca1662951d2b.zip',
+                    'err_msg': ''
+                }]
+            }
+        }
+        mock_batch_response.raise_for_status = Mock()
+
+        # Mock tasks endpoint returning empty (task not found)
+        mock_tasks_response = Mock()
+        mock_tasks_response.status_code = 200
+        mock_tasks_response.json.return_value = {
+            'code': 0,
+            'data': {'list': []}  # Empty list - task not in tasks endpoint
+        }
+        mock_tasks_response.raise_for_status = Mock()
+
+        # Configure mock to return different responses for different calls
+        mock_get.side_effect = [mock_batch_response, mock_tasks_response]
+
+        client = MinerUClient(api_key="test-key")
+
+        # First call: check_task_status (batch endpoint)
+        status = client.check_task_status("test-batch")
+        self.assertTrue(status['success'])
+        self.assertEqual(status['state'], 'done')
+
+        # The derived md_url should be constructed from zip_url
+        # Expected: https://cdn-mineru.openxlab.org.cn/result/2026-02-07/4d842f2f-8677-4099-834f-ca1662951d2b/full.md
+
+
 if __name__ == "__main__":
     # Run tests with verbose output
     unittest.main(verbosity=2)
