@@ -604,7 +604,10 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
                 )
                 dimensions_data.append(dim_result)
             except Exception as e:
+                import traceback
                 st.warning(f"Warning: Could not process dimension {dim_data.get('position', 'Unknown')}: {e}")
+                with st.expander("🔍 Full Error Details"):
+                    st.code(traceback.format_exc(), language="python")
 
         if not dimensions_data:
             st.error("❌ No valid dimension data could be extracted. Please check the PDF format.")
@@ -883,13 +886,15 @@ def render_processing_section(uploaded_file):
                     return None
 
             except Exception as e:
+                import traceback
+                error_details = str(e) + "\n\n" + traceback.format_exc()
                 st.markdown(f"""
                 <div class="status-card error">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <span style="font-size: 1.5rem;">⚠️</span>
                         <div>
                             <div style="font-weight: 600; color: #991b1b;">Processing Error</div>
-                            <div style="font-size: 0.875rem; color: #7f1d1d;">{str(e)}</div>
+                            <div style="font-size: 0.875rem; color: #7f1d1d;"><pre style="white-space: pre-wrap; font-size: 0.75rem;">{error_details[:2000]}</pre></div>
                         </div>
                     </div>
                 </div>
