@@ -1,0 +1,25 @@
+# IQC OCR + SPC Analysis - Python Dependencies
+# Streamlit web framework
+streamlit>=1.28.0
+
+# HTTP requests
+requests>=2.31.0
+
+# PDF processing
+PyPDF2>=3.0.0
+pypdf>=3.17.0
+
+# Report generation
+reportlab>=4.0.0
+
+# Optional: PaddleOCR for local OCR (heavy, not included by default)
+# Uncomment if you want to use PaddleOCR as a fallback option
+# paddleocr>=2.7.0
+# paddlepaddle>=2.6.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Additional utilities
+python-dateutil>=2.8.0

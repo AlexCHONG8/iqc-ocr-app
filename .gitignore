@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output files
+output/
+*.pdf
+*.md
+!README.md
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Large test files
+*.png
+*.jpg
+*.jpeg
+!assets/
+
+# Claude files
+.claude/
