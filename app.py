@@ -49,7 +49,7 @@ generate_html_report = iqc_stats.generate_html_report
 
 # Page configuration
 st.set_page_config(
-    page_title="IQC OCR + SPC Analysis",
+    page_title="Summed Medtech - IQC OCR + SPC Analysis",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -420,15 +420,21 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
 
 def render_header():
     """Render application header."""
-    st.markdown('<div class="main-header">📊 IQC OCR + SPC Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Incoming Quality Control with Statistical Process Control</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🏢 Summed Medtech - IQC OCR + SPC Analysis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Incoming Quality Control with Statistical Process Control | Internal Use Only</div>', unsafe_allow_html=True)
     st.markdown("---")
 
 def render_sidebar():
     """Render sidebar with settings and info."""
     with st.sidebar:
-        st.image("https://via.placeholder.com/300x100/1e3a5f/ffffff?text=IQC+Analysis", use_column_width=True)
+        st.markdown("## 🏢 Summed Medtech")
+        st.markdown("**Internal Quality Control System**")
+        st.markdown("---")
+        st.markdown("> ⚠️ **INTERNAL USE ONLY**")
+        st.markdown("> Confidential and proprietary")
+        st.markdown("> For authorized personnel only")
 
+        st.markdown("---")
         st.markdown("### ℹ️ About")
         st.markdown("""
         This application processes handwritten inspection reports with OCR and generates ISO 13485 compliant statistical analysis reports.
@@ -770,8 +776,10 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #64748b; font-size: 0.9rem;'>
-    <p>💡 <strong>Tip:</strong> For best results, use clear, high-resolution scans of inspection reports.</p>
+    <p><strong>© Summed Medtech</strong> - Internal Quality Control System</p>
+    <p>⚠️ <strong>INTERNAL USE ONLY</strong> - Confidential and Proprietary</p>
     <p>🔧 Powered by <a href='https://mineru.net' target='_blank'>MinerU.net</a> | ISO 13485 Compliant</p>
+    <p>💡 <strong>Tip:</strong> For best results, use clear, high-resolution scans of inspection reports.</p>
     </div>
     """, unsafe_allow_html=True)
 
