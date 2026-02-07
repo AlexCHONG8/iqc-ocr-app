@@ -534,17 +534,40 @@ class MinerUClient:
 
 def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]:
     """
-    Parse HTML tables from MinerU.net OCR output to extract dimension data.
+    Parse HTML tables AND Markdown tables from MinerU.net OCR output to extract dimension data.
 
-    Expected format from MinerU.net:
-    <table>
-      <tr><td>检验位置</td><td colspan="2">1</td><td colspan="2">11</td><td colspan="2">13</td></tr>
-      <tr><td>检验标准</td><td colspan="2">27.80+0.10-0.00(mm)</td>...</tr>
-      <tr><td>结果序号</td><td>测试结果</td><td>结果判定</td><td>测试结果</td>...</tr>
-      <tr><td>1</td><td>27.85</td><td>☑OK</td><td>6.02</td>...</tr>
-      ...
-    </table>
+    Supports BOTH formats:
+    1. HTML tables: <table><tr><td>...</td></tr></table>
+    2. Markdown tables: | col1 | col2 | col3 |
+
+    Expected HTML format from MinerU.net:
+      <table>
+        <tr><td>检验位置</td><td colspan="2">1</td><td colspan="2">11</td><td colspan="2">13</td></tr>
+        <tr><td>检验标准</td><td colspan="2">27.80+0.10-0.00(mm)</td>...</tr>
+        <tr><td>结果序号</td><td>测试结果</td><td>结果判定</td><td>测试结果</td>...</tr>
+        <tr><td>1</td><td>27.85</td><td>☑OK</td><td>6.02</td>...</tr>
+      </table>
+
+    Expected Markdown format:
+      | 检验位置 | 1 | 11 | 13 |
+      | **检验标准** | 27.80±0.10 | Φ6.00±0.10 | 73.20±0.15 |
+      | 1 | 27.85 | OK | 6.02 | OK | 73.14 | OK |
     """
+    dimensions = []
+
+    # Parse HTML tables first
+    html_dimensions = _parse_html_table_tags(markdown_text)
+    dimensions.extend(html_dimensions)
+
+    # Then parse Markdown tables (pipe syntax)
+    md_dimensions = _parse_markdown_tables(markdown_text)
+    dimensions.extend(md_dimensions)
+
+    return dimensions
+
+
+def _parse_html_table_tags(markdown_text: str) -> List[Dict[str, Any]]:
+    """Parse HTML <table> tags from text."""
     dimensions = []
 
     # Find all table tags and their content
@@ -573,87 +596,161 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
                 clean_cells.append(clean)
             table_data.append(clean_cells)
 
-        # Look for inspection table pattern
-        # Find the row with "检验位置" (Inspection Position)
-        position_row_idx = None
-        spec_row_idx = None
-
-        for i, row in enumerate(table_data):
-            if not row:
-                continue
-            # Check for position row
-            if any('检验位置' in cell or '位置' in cell for cell in row):
-                position_row_idx = i
-            # Check for spec row (must come after position row)
-            elif any('检验标准' in cell or '标准' in cell for cell in row):
-                spec_row_idx = i
-                break
-
-        if spec_row_idx is None:
-            continue
-
-        # Extract specs from the spec row
-        spec_row = table_data[spec_row_idx]
-        specs = []
-        spec_col_indices = []  # Track which columns have specs
-
-        # Skip first column (it's the label "检验标准")
-        for i in range(1, len(spec_row)):
-            cell = spec_row[i]
-            # Check if it looks like a spec (contains numbers and ±, +, -)
-            if re.search(r'[\d.]+[+\-±]', cell):
-                spec_match = re.search(r'[\d.]+[+\-]?[\d.]*[+\-±]?[\d.]*', cell)
-                if spec_match:
-                    specs.append(spec_match.group(0))
-                    spec_col_indices.append(i)
-
-        if not specs:
-            continue
-
-        # Find the data rows - start from the row after spec row
-        # Look for rows where first cell is a sequence number (1, 2, 3, ...)
-        # Note: The table may have multiple sections with repeated spec headers
-        measurement_sets = {i: [] for i in range(len(specs))}
-
-        for row_idx in range(spec_row_idx + 1, len(table_data)):
-            row = table_data[row_idx]
-
-            if len(row) < 2:
-                continue
-
-            # Check if first cell is a number (sequence number) - this indicates a data row
-            first_cell = row[0] if row else ""
-            if not first_cell.isdigit():
-                # Skip rows that aren't data rows (like repeated headers)
-                continue
-
-            # Now extract measurements
-            # Each spec has corresponding columns in the data row
-            # Data rows have same column structure as spec row
-            # So if spec is at column j, data value is at column j
-            for i, spec_col_idx in enumerate(spec_col_indices):
-                # Use the actual column index from spec_col_indices
-                data_col_idx = spec_col_idx
-
-                if data_col_idx < len(row):
-                    val_str = row[data_col_idx]
-                    try:
-                        val = float(val_str)
-                        measurement_sets[i].append(val)
-                    except ValueError:
-                        pass
-
-        # Create dimension entries
-        for i in range(len(specs)):
-            measurements = measurement_sets[i]
-            if len(measurements) >= 5:  # Need at least 5 for SPC
-                dimensions.append({
-                    'position': f'位置 {i+1}',
-                    'spec': specs[i],
-                    'measurements': measurements
-                })
+        # Use shared extraction logic
+        dims = _extract_dimensions_from_table_data(table_data)
+        dimensions.extend(dims)
 
     return dimensions
+
+
+def _parse_markdown_tables(markdown_text: str) -> List[Dict[str, Any]]:
+    """
+    Parse Markdown tables with pipe | syntax.
+
+    Handles format:
+      | header1 | header2 | header3 |
+      |---------|---------|---------|
+      | data1   | data2   | data3   |
+    """
+    dimensions = []
+    lines = markdown_text.split('\n')
+
+    i = 0
+    while i < len(lines):
+        # Find table start (line with |)
+        if '|' not in lines[i]:
+            i += 1
+            continue
+
+        # Check if this looks like an inspection table
+        # by collecting table rows
+        table_lines = []
+        j = i
+        while j < len(lines) and '|' in lines[j]:
+            table_lines.append(lines[j])
+            j += 1
+
+        # Need minimum rows: position, separator/spec, 3+ data rows
+        if len(table_lines) < 4:
+            i = j
+            continue
+
+        # Parse table into cells
+        table_data = []
+        for line in table_lines:
+            # Remove leading/trailing |
+            line = line.strip()
+            if line.startswith('|'):
+                line = line[1:]
+            if line.endswith('|'):
+                line = line[:-1]
+
+            # Split by | and clean cells
+            cells = [cell.strip() for cell in line.split('|')]
+            if cells:
+                table_data.append(cells)
+
+        # Extract dimensions using same logic as HTML parser
+        dims = _extract_dimensions_from_table_data(table_data)
+        dimensions.extend(dims)
+
+        i = j  # Move past this table
+
+    return dimensions
+
+
+def _extract_dimensions_from_table_data(table_data: List[List[str]]) -> List[Dict[str, Any]]:
+    """
+    Extract dimension data from parsed table cells (works for both HTML and MD tables).
+
+    Table structure:
+    - Row 0: Position headers (检验位置 | 1 | 11 | 13)
+    - Row 1: Spec row (检验标准 | 27.80±0.10 | 6.00±0.10 | 73.20±0.15)
+    - Row 2+: Data rows (1 | 27.85 | OK | 6.02 | OK | 73.14 | OK)
+
+    Data row pattern: [seq, val1, status1, val2, status2, val3, status3, ...]
+    Spec columns: [1, 2, 3] (indices in spec row)
+    """
+    dimensions = []
+
+    # Look for inspection table pattern
+    position_row_idx = None
+    spec_row_idx = None
+
+    for i, row in enumerate(table_data):
+        if not row:
+            continue
+        # Check for position row
+        if any('检验位置' in cell or '位置' in cell for cell in row):
+            position_row_idx = i
+        # Check for spec row (must come after position row)
+        elif any('检验标准' in cell or '标准' in cell for cell in row):
+            spec_row_idx = i
+            break
+
+    if spec_row_idx is None:
+        return dimensions
+
+    # Extract specs from the spec row
+    spec_row = table_data[spec_row_idx]
+    specs = []
+    spec_col_indices = []
+
+    # Skip first column (it's the label "检验标准")
+    for i in range(1, len(spec_row)):
+        cell = spec_row[i]
+        # Check if it looks like a spec (contains numbers and ±, +, -)
+        if re.search(r'[\d.]+[+\-±]', cell):
+            spec_match = re.search(r'[\d.]+[+\-]?[\d.]*[+\-±]?[\d.]*', cell)
+            if spec_match:
+                specs.append(spec_match.group(0))
+                spec_col_indices.append(i)
+
+    if not specs:
+        return dimensions
+
+    # Find the data rows - start from the row after spec row
+    measurement_sets = {i: [] for i in range(len(specs))}
+
+    for row_idx in range(spec_row_idx + 1, len(table_data)):
+        row = table_data[row_idx]
+
+        if len(row) < 2:
+            continue
+
+        # Check if first cell is a number (sequence number)
+        first_cell = row[0] if row else ""
+        if not first_cell.isdigit():
+            continue
+
+        # Extract measurements with CORRECT column mapping
+        # Data row structure: [seq, val1, status1, val2, status2, val3, status3, ...]
+        # Spec columns: [1, 2, 3] (spec1, spec2, spec3)
+        # Mapping: data_col = spec_col * 2 - 1
+        for i, spec_col_idx in enumerate(spec_col_indices):
+            # CORRECT FORMULA: data_col = spec_col * 2 - 1
+            data_col_idx = spec_col_idx * 2 - 1
+
+            if data_col_idx < len(row):
+                val_str = row[data_col_idx]
+                try:
+                    val = float(val_str)
+                    measurement_sets[i].append(val)
+                except ValueError:
+                    pass
+
+    # Create dimension entries
+    for i in range(len(specs)):
+        measurements = measurement_sets[i]
+        if len(measurements) >= 5:  # Need at least 5 for SPC
+            dimensions.append({
+                'position': f'位置 {i+1}',
+                'spec': specs[i],
+                'measurements': measurements
+            })
+
+    return dimensions
+
 
 def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any]]:
     """
