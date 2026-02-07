@@ -149,35 +149,64 @@ class MinerUClient:
         }
 
     def upload_pdf(self, pdf_bytes: bytes, filename: str) -> Dict[str, Any]:
-        """Upload PDF to MinerU.net for OCR processing."""
-        upload_url = f"{self.base_url}/tasks"
-        files = {'file': (filename, pdf_bytes, 'application/pdf')}
-        data = {
-            'lang': 'ch',  # Chinese
-            'output_format': 'md',
-            'enable_formula': True,
-            'enable_table': True
+        """Upload PDF to MinerU.net for OCR processing.
+
+        Uses two-step process:
+        1. POST to /api/v4/file-urls/batch to get upload URLs
+        2. PUT file to the returned upload URL
+        """
+        # Step 1: Get upload URLs
+        batch_url = f"{self.base_url}/file-urls/batch"
+        batch_data = {
+            'requests': [{
+                'key': filename,
+                'lang': 'ch',
+                'output_format': 'md',
+                'enable_formula': True,
+                'enable_table': True
+            }]
         }
 
         try:
-            response = requests.post(upload_url, headers=self.headers, files=files, data=data, timeout=60)
-            response.raise_for_status()
-            result = response.json()
+            # Step 1: Get upload URL
+            batch_response = requests.post(batch_url, headers=self.headers, json=batch_data, timeout=30)
+            batch_response.raise_for_status()
+            batch_result = batch_response.json()
 
-            if result.get('code') != 0:
-                return {'success': False, 'error': result.get('msg', 'Upload failed')}
+            if batch_result.get('code') != 0:
+                return {'success': False, 'error': batch_result.get('msg', 'Failed to get upload URL')}
+
+            # Extract upload URL from response
+            requests_data = batch_result.get('data', {}).get('requests', [])
+            if not requests_data:
+                return {'success': False, 'error': 'No upload URL returned'}
+
+            upload_info = requests_data[0]
+            upload_url = upload_info.get('url')
+            task_id = upload_info.get('task_id')
+
+            if not upload_url:
+                return {'success': False, 'error': 'Upload URL missing in response'}
+
+            # Step 2: Upload file to the provided URL
+            upload_headers = {
+                'Content-Type': 'application/pdf',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+            }
+            upload_response = requests.put(upload_url, headers=upload_headers, data=pdf_bytes, timeout=120)
+            upload_response.raise_for_status()
 
             return {
                 'success': True,
-                'task_id': result.get('data', {}).get('task_id'),
+                'task_id': task_id,
                 'message': 'PDF uploaded successfully'
             }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
     def check_task_status(self, task_id: str) -> Dict[str, Any]:
-        """Check the status of an OCR task."""
-        status_url = f"{self.base_url}/tasks"
+        """Check the status of an OCR task using /api/v4/extract/task/{task_id} endpoint."""
+        status_url = f"{self.base_url}/extract/task/{task_id}"
         try:
             response = requests.get(status_url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -186,17 +215,13 @@ class MinerUClient:
             if result.get('code') != 0:
                 return {'success': False, 'error': result.get('msg')}
 
-            tasks = result.get('data', {}).get('list', [])
-            for task in tasks:
-                if task.get('task_id') == task_id:
-                    return {
-                        'success': True,
-                        'state': task.get('state'),
-                        'md_url': task.get('full_md_link'),
-                        'err_msg': task.get('err_msg')
-                    }
-
-            return {'success': False, 'error': 'Task not found'}
+            data = result.get('data', {})
+            return {
+                'success': True,
+                'state': data.get('state'),
+                'md_url': data.get('full_md_link') or data.get('full_zip_url'),
+                'err_msg': data.get('err_msg')
+            }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
