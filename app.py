@@ -401,6 +401,10 @@ class MinerUClient:
 
     def download_markdown(self, md_url: str) -> str:
         """Download OCR results as markdown text."""
+        # Validate URL before making request
+        if not md_url or not isinstance(md_url, str):
+            return ""
+
         try:
             response = requests.get(md_url, timeout=30)
             response.raise_for_status()
@@ -867,7 +871,19 @@ def render_processing_section(uploaded_file):
                                 st.markdown(f"*Total length: {len(markdown_text)} characters*")
 
                     else:
-                        st.error("Failed to download OCR results")
+                        # Better error diagnostics
+                        if not md_url:
+                            st.error("❌ No markdown URL in API response")
+                            st.info("💡 Debug: The API returned success but no full_md_link was provided")
+                        elif markdown_text == "":
+                            st.error(f"❌ Download failed from URL: {md_url[:100]}...")
+                            st.info("💡 The URL may be expired or invalid")
+                        else:
+                            st.error("Failed to download OCR results")
+
+                        if st.session_state.get('debug_mode', False):
+                            st.json({"md_url": md_url, "markdown_length": len(markdown_text) if markdown_text else 0})
+
                         st.session_state.processing = False
                         return None
                 else:
