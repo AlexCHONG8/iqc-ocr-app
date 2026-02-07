@@ -151,20 +151,17 @@ class MinerUClient:
     def upload_pdf(self, pdf_bytes: bytes, filename: str) -> Dict[str, Any]:
         """Upload PDF to MinerU.net for OCR processing.
 
-        Uses two-step process:
+        Uses two-step process per official API:
         1. POST to /api/v4/file-urls/batch to get upload URLs
-        2. PUT file to the returned upload URL
+        2. PUT file to the returned upload URL (no Content-Type header!)
+
+        Returns batch_id for later status checking.
         """
-        # Step 1: Get upload URLs
+        # Step 1: Get upload URLs using correct API format
         batch_url = f"{self.base_url}/file-urls/batch"
         batch_data = {
-            'requests': [{
-                'key': filename,
-                'lang': 'ch',
-                'output_format': 'md',
-                'enable_formula': True,
-                'enable_table': True
-            }]
+            "files": [{"name": filename}],
+            "model_version": "vlm"
         }
 
         try:
@@ -176,21 +173,19 @@ class MinerUClient:
             if batch_result.get('code') != 0:
                 return {'success': False, 'error': batch_result.get('msg', 'Failed to get upload URL')}
 
-            # Extract upload URL from response
-            requests_data = batch_result.get('data', {}).get('requests', [])
-            if not requests_data:
+            # Extract batch_id and upload URLs from response
+            data = batch_result.get('data', {})
+            batch_id = data.get('batch_id')
+            file_urls = data.get('file_urls', [])
+
+            if not file_urls:
                 return {'success': False, 'error': 'No upload URL returned'}
 
-            upload_info = requests_data[0]
-            upload_url = upload_info.get('url')
-            task_id = upload_info.get('task_id')
-
-            if not upload_url:
-                return {'success': False, 'error': 'Upload URL missing in response'}
+            upload_url = file_urls[0]  # First file's upload URL
 
             # Step 2: Upload file to the provided URL
+            # IMPORTANT: Do NOT set Content-Type header per API docs
             upload_headers = {
-                'Content-Type': 'application/pdf',
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
             }
             upload_response = requests.put(upload_url, headers=upload_headers, data=pdf_bytes, timeout=120)
@@ -198,15 +193,18 @@ class MinerUClient:
 
             return {
                 'success': True,
-                'task_id': task_id,
+                'batch_id': batch_id,
                 'message': 'PDF uploaded successfully'
             }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def check_task_status(self, task_id: str) -> Dict[str, Any]:
-        """Check the status of an OCR task using /api/v4/extract/task/{task_id} endpoint."""
-        status_url = f"{self.base_url}/extract/task/{task_id}"
+    def check_task_status(self, batch_id: str) -> Dict[str, Any]:
+        """Check the status of a batch OCR task using /api/v4/extract-results/batch/{batch_id} endpoint.
+
+        For batch uploads, use batch_id instead of task_id.
+        """
+        status_url = f"{self.base_url}/extract-results/batch/{batch_id}"
         try:
             response = requests.get(status_url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -216,21 +214,29 @@ class MinerUClient:
                 return {'success': False, 'error': result.get('msg')}
 
             data = result.get('data', {})
+            extract_result = data.get('extract_result', [])
+
+            if not extract_result:
+                return {'success': False, 'error': 'No extract result found'}
+
+            # Get first file's result (we only upload one file at a time)
+            first_result = extract_result[0]
+
             return {
                 'success': True,
-                'state': data.get('state'),
-                'md_url': data.get('full_md_link') or data.get('full_zip_url'),
-                'err_msg': data.get('err_msg')
+                'state': first_result.get('state'),
+                'md_url': first_result.get('full_zip_url'),
+                'err_msg': first_result.get('err_msg')
             }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def wait_for_completion(self, task_id: str, timeout: int = 300) -> Dict[str, Any]:
-        """Wait for OCR task to complete."""
+    def wait_for_completion(self, batch_id: str, timeout: int = 300) -> Dict[str, Any]:
+        """Wait for OCR batch task to complete."""
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            status = self.check_task_status(task_id)
+            status = self.check_task_status(batch_id)
 
             if not status.get('success'):
                 return status
@@ -582,8 +588,8 @@ def render_processing_section(uploaded_file):
                         st.session_state.processing = False
                         return None
 
-                    task_id = upload_result.get('task_id')
-                    st.info(f"✅ PDF uploaded. Task ID: {task_id}")
+                    batch_id = upload_result.get('batch_id')
+                    st.info(f"✅ PDF uploaded. Batch ID: {batch_id}")
 
                     # Create progress bar
                     progress_bar = st.progress(0)
@@ -602,7 +608,7 @@ def render_processing_section(uploaded_file):
                         progress_bar.progress(progress)
                         status_text.text(f"Processing... ({waited}s elapsed)")
 
-                        result = client.check_task_status(task_id)
+                        result = client.check_task_status(batch_id)
 
                         if result.get('success'):
                             state = result.get('state')
