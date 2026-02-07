@@ -173,6 +173,51 @@ data_col_idx = spec_col_idx
 
 **Verification**: All 3 measurement points now correctly extracted from tables with empty columns.
 
+---
+
+### ✅ Fixed: Split-Table Format Support (2026-02-07)
+
+**Issue**: Deployed app showing only 2 out of 3 measurement points (positions 1 and 13, but missing 11).
+
+**Root Cause**: MinerU OCR outputs specs and data in **TWO SEPARATE TABLES**, but the parser expected them in one table:
+
+**Table 1** (specs only):
+```markdown
+| 检验位置 | 1 | 11 | 13 |
+| **检验标准** | 27.80±0.10 | Φ6.00±0.10 | 73.20±0.15 |
+```
+
+**Table 2** (data with header):
+```markdown
+| 结果序号 | 测试结果(1) | 判定 | 测试结果(11) | 判定 | 测试结果(13) | 判定 |
+| 1 | 27.85 | OK | 6.02 | OK | 73.14 | OK |
+```
+
+Previous parser:
+- Table 1: Found specs → looked for data → only 2 rows → SKIPPED
+- Table 2: No "检验标准" row → SKIPPED
+- Result: 0 dimensions extracted
+
+**Fix**: Implemented multi-table format support with state tracking:
+- Added `_detect_table_type()` - Classify tables (SPECS_ONLY, DATA_TABLE, COMPLETE)
+- Added `_extract_specs_from_table()` - Extract specs from specs-only tables
+- Added `_extract_data_with_specs()` - Combine pending specs with data table
+- Modified `parse_html_tables_for_dimensions()` - Sequential processing with `pending_specs` state
+
+**Test Coverage**:
+- `test_split_table_format.py` - TDD tests for split-table format (both Markdown and HTML)
+- `test_real_iqc_file.py` - Verified with actual IQC file (output/20260122_111541.md)
+
+**Verification**:
+- ✅ All 3 dimensions now extracted from split tables
+- ✅ Position names preserved (1, 11, 13)
+- ✅ Specs correctly linked with measurements
+- ✅ Backward compatible with single-table format
+
+**Root Cause Analysis**: See `docs/plans/2026-02-07-SUPERTHINK-SPLIT-TABLE-BUG.md`
+
+---
+
 ## System Requirements
 
 ### For Development (Local)
