@@ -588,18 +588,34 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
             # Combine pending specs with this data table
             dims = _extract_data_with_specs(table_data, pending_specs)
             logging.debug(f"Table {table_idx}: DATA_TABLE - extracted {len(dims)} dimensions")
+
+            # AGGRESSIVE: Filter out any non-dict items BEFORE adding to dimensions
+            filtered_dims = []
             for i, d in enumerate(dims):
-                logging.debug(f"  Dimension {i} type: {type(d).__name__}, value: {d}")
-            dimensions.extend(dims)
+                if not isinstance(d, dict):
+                    logging.error(f"❌ CRITICAL: Table {table_idx}, Dimension {i} is {type(d).__name__} not dict! Value: {d}")
+                else:
+                    filtered_dims.append(d)
+
+            logging.debug(f"  After filtering: {len(filtered_dims)} valid dimensions")
+            dimensions.extend(filtered_dims)
             pending_specs = None
 
         elif table_type == "COMPLETE":
             # Single table with everything (backward compatible)
             dims = _extract_dimensions_from_table_data(table_data)
             logging.debug(f"Table {table_idx}: COMPLETE - extracted {len(dims)} dimensions")
+
+            # AGGRESSIVE: Filter out any non-dict items BEFORE adding to dimensions
+            filtered_dims = []
             for i, d in enumerate(dims):
-                logging.debug(f"  Dimension {i} type: {type(d).__name__}, value: {d}")
-            dimensions.extend(dims)
+                if not isinstance(d, dict):
+                    logging.error(f"❌ CRITICAL: Table {table_idx}, Dimension {i} is {type(d).__name__} not dict! Value: {d}")
+                else:
+                    filtered_dims.append(d)
+
+            logging.debug(f"  After filtering: {len(filtered_dims)} valid dimensions")
+            dimensions.extend(filtered_dims)
 
         else:
             logging.debug(f"Table {table_idx}: {table_type} - skipping")
@@ -611,7 +627,16 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
         if isinstance(d, dict):
             logging.debug(f"  Keys: {list(d.keys())}")
 
-    return dimensions
+    # FINAL VALIDATION: Ensure all items are dicts, filter out any contaminants
+    clean_dimensions = []
+    for i, d in enumerate(dimensions):
+        if isinstance(d, dict) and 'position' in d and 'spec' in d and 'measurements' in d:
+            clean_dimensions.append(d)
+        else:
+            logging.error(f"❌ FINAL FILTER: Removed invalid dimension {i}: type={type(d).__name__}, value={d}")
+
+    logging.info(f"✅ Final clean dimensions: {len(clean_dimensions)} (filtered out {len(dimensions) - len(clean_dimensions)} invalid items)")
+    return clean_dimensions
 
 
 def _parse_html_table_tags(markdown_text: str) -> List[List[str]]:

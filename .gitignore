@@ -16,7 +16,7 @@ ENV/
 env/
 
 # Streamlit
-# .streamlit/secrets.toml  # Commented out to allow API key in repo
+.streamlit/
 
 # IDE
 .vscode/
@@ -29,22 +29,37 @@ env/
 .DS_Store
 Thumbs.db
 
-# Output files
-output/
-*.pdf
-*.md
-!README.md
-
-# Temporary files
+# Temporary and development files
+temp/
 *.tmp
 *.bak
 *.log
 
-# Large test files
-*.png
-*.jpg
-*.jpeg
-!assets/
+# Test outputs
+output/*.pdf
+output/*.md
+!output/.gitkeep
+
+# Input files
+input/*.pdf
+!input/.gitkeep
+
+# Reports and screenshots
+screenshots/
+*.html
+!iqc-report/assets/*.html
+
+# Large binary files
+*.zip
+*.skill
 
 # Claude files
 .claude/
+
+# Keep essential docs
+!README.md
+!CLAUDE.md
+!requirements.txt
+!.gitignore
+!Procfile
+!packages.txt
