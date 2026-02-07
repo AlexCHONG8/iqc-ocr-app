@@ -270,11 +270,12 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
     """
     Parse HTML tables from MinerU.net OCR output to extract dimension data.
 
-    Expected format:
+    Expected format from MinerU.net:
     <table>
-      <tr><td>检验位置</td><td>1</td><td>11</td><td>13</td></tr>
-      <tr><td>检验标准</td><td>27.80+0.10-0.00</td><td>Φ6.00±0.10</td><td>73.20+0.00-0.15</td></tr>
-      <tr><td>1</td><td>27.85</td><td>6.02</td><td>73.14</td></tr>
+      <tr><td>检验位置</td><td colspan="2">1</td><td colspan="2">11</td><td colspan="2">13</td></tr>
+      <tr><td>检验标准</td><td colspan="2">27.80+0.10-0.00(mm)</td>...</tr>
+      <tr><td>结果序号</td><td>测试结果</td><td>结果判定</td><td>测试结果</td>...</tr>
+      <tr><td>1</td><td>27.85</td><td>☑OK</td><td>6.02</td>...</tr>
       ...
     </table>
     """
@@ -289,7 +290,7 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
         row_pattern = r'<tr>(.*?)</tr>'
         rows = re.findall(row_pattern, table_content, re.DOTALL)
 
-        if len(rows) < 3:
+        if len(rows) < 4:
             continue
 
         # Extract cells from each row
@@ -307,60 +308,70 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
             table_data.append(clean_cells)
 
         # Look for inspection table pattern
-        # First row should have "检验位置" (Inspection Position)
-        if not table_data or not any('检验位置' in cell or '位置' in cell for cell in table_data[0]):
-            continue
-
-        # Second row should have "检验标准" (Inspection Standard) with specs
+        # Find the row with "检验位置" (Inspection Position)
+        position_row_idx = None
         spec_row_idx = None
+
         for i, row in enumerate(table_data):
-            if any('检验标准' in cell or '标准' in cell for cell in row):
+            if not row:
+                continue
+            # Check for position row
+            if any('检验位置' in cell or '位置' in cell for cell in row):
+                position_row_idx = i
+            # Check for spec row (must come after position row)
+            elif any('检验标准' in cell or '标准' in cell for cell in row):
                 spec_row_idx = i
                 break
 
         if spec_row_idx is None:
             continue
 
-        # Extract position names and specs
+        # Extract specs from the spec row
         spec_row = table_data[spec_row_idx]
-        positions = []
         specs = []
+        spec_col_indices = []  # Track which columns have specs
 
         # Skip first column (it's the label "检验标准")
         for i in range(1, len(spec_row)):
             cell = spec_row[i]
             # Check if it looks like a spec (contains numbers and ±, +, -)
             if re.search(r'[\d.]+[+\-±]', cell):
-                # This is a spec - extract it
                 spec_match = re.search(r'[\d.]+[+\-]?[\d.]*[+\-±]?[\d.]*', cell)
                 if spec_match:
                     specs.append(spec_match.group(0))
-                    # Generate position name
-                    positions.append(f"位置 {len(positions) + 1}")
+                    spec_col_indices.append(i)
 
-        # Now extract measurements from data rows
-        # Data rows start after the spec row
+        if not specs:
+            continue
+
+        # Find the data rows - start from the row after spec row
+        # Look for rows where first cell is a sequence number (1, 2, 3, ...)
+        # Note: The table may have multiple sections with repeated spec headers
         measurement_sets = {i: [] for i in range(len(specs))}
 
         for row_idx in range(spec_row_idx + 1, len(table_data)):
             row = table_data[row_idx]
 
-            # Skip if this is a header row or summary row
             if len(row) < 2:
                 continue
 
-            # Check if first cell is a number (sequence number)
+            # Check if first cell is a number (sequence number) - this indicates a data row
             first_cell = row[0] if row else ""
             if not first_cell.isdigit():
+                # Skip rows that aren't data rows (like repeated headers)
                 continue
 
-            # Extract measurements for each position
-            # Position i's measurements are in column (i * 2 + 1) because each position has 2 columns (value + OK)
-            for i in range(len(specs)):
-                col_idx = i * 2 + 1  # Each position has value + OK columns
-                if col_idx < len(row):
-                    val_str = row[col_idx]
-                    # Try to parse as float
+            # Now extract measurements
+            # Each spec has corresponding columns in the data row
+            # The structure is: seq, pos1_val, pos1_status, pos2_val, pos2_status, ...
+            # So for spec i (0-indexed), the value is at column 1 + i*2
+            for i, spec_col_idx in enumerate(spec_col_indices):
+                # Calculate the data column index based on spec position
+                # spec at column j corresponds to data at column 1 + j*2
+                data_col_idx = 1 + i * 2
+
+                if data_col_idx < len(row):
+                    val_str = row[data_col_idx]
                     try:
                         val = float(val_str)
                         measurement_sets[i].append(val)
@@ -372,7 +383,7 @@ def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]
             measurements = measurement_sets[i]
             if len(measurements) >= 5:  # Need at least 5 for SPC
                 dimensions.append({
-                    'position': positions[i] if i < len(positions) else f'位置 {i+1}',
+                    'position': f'位置 {i+1}',
                     'spec': specs[i],
                     'measurements': measurements
                 })
