@@ -793,7 +793,7 @@ def render_processing_section(uploaded_file):
 
                 # Upload
                 with st.spinner("Uploading PDF..."):
-                    upload_result = client.upload_pdf(pdf_bytes, uploaded_file.name())
+                    upload_result = client.upload_pdf(pdf_bytes, uploaded_file.name)
 
                 if not upload_result.get('success'):
                     st.markdown(f"""
