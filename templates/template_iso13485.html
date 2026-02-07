@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>森迈医疗 - IQC 统计分析报告 (ISO 13485)</title>
+    <style>
+        :root {
+            --primary-blue: #003366;
+            --secondary-gray: #f4f4f4;
+            --alert-red: #cc0000;
+            --success-green: #28a745;
+            --text-dark: #333;
+        }
+
+        body {
+            font-family: 'Inter', 'SimSun', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #fff;
+            color: var(--text-dark);
+        }
+
+        .header {
+            border-bottom: 2px solid var(--primary-blue);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: var(--primary-blue);
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: var(--secondary-gray);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .meta-item b {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .stats-container {
+            margin-bottom: 40px;
+        }
+
+        .dimension-card {
+            border: 1px solid #ddd;
+            border-left: 5px solid var(--primary-blue);
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .dimension-card.ng {
+            border-left-color: var(--alert-red);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: #fff;
+            border: 1px solid #eee;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-box small {
+            display: block;
+            color: #888;
+        }
+
+        .stat-box span {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+
+        .cpk-value.low {
+            color: var(--alert-red);
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .chart-card {
+            background: #fff;
+            border: 1px solid #f0f0f0;
+            padding: 10px;
+            height: 250px;
+            position: relative;
+        }
+
+        .summary-overlay {
+            grid-column: span 2;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            padding: 10px;
+        }
+
+        table.raw-data {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        table.raw-data th,
+        table.raw-data td {
+            border: 1px solid #eee;
+            padding: 5px;
+            text-align: center;
+        }
+
+        .footer {
+            margin-top: 50px;
+            font-size: 12px;
+            color: #999;
+            text-align: right;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div>
+            <h1>森迈医疗进货检验数据分析</h1>
+            <small>Senmai Medical IQC Statistical Analysis Report</small>
+        </div>
+        <div style="text-align: right">
+            <div>表单编号: SNP-QR-8.2.6-STATS</div>
+            <div style="color: var(--alert-red)">[ 仅供生产控制及质量改进使用 ]</div>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="meta-item"><b>物料名称 Material</b><span id="mat-name">-</span></div>
+        <div class="meta-item"><b>物料编码 Code</b><span id="mat-code">-</span></div>
+        <div class="meta-item"><b>检验日期 Date</b><span id="mat-date">-</span></div>
+        <div class="meta-item"><b>生产批号 Batch</b><span id="mat-batch">-</span></div>
+        <div class="meta-item"><b>供应商 Supplier</b><span id="mat-supp">-</span></div>
+        <div class="meta-item" style="background: #e6f7ff; padding: 5px; border-radius: 4px;">
+            <b>整体质量判定 Result</b>
+            <span id="final-verdict" style="font-weight: bold; color: var(--primary-blue);">-</span>
+        </div>
+    </div>
+
+    <div id="stats-content">
+        <!-- Rendered by JS -->
+    </div>
+
+    <div class="dimension-card">
+        <h3>📊 原始测量数据明细 (Measurement Details)</h3>
+        <div id="raw-data-content"></div>
+    </div>
+
+    <div class="footer">
+        审核: ____________________ 日期: ____________________ 批准: ____________________ 日期: ____________________
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Data injected by the python script
+        const iqcData = /*JSON_DATA_HERE*/ {};
+
+        function renderReport(data) {
+            document.getElementById('mat-name').innerText = data.meta.material_name;
+            document.getElementById('mat-code').innerText = data.meta.material_code;
+            document.getElementById('mat-date').innerText = data.meta.date;
+            document.getElementById('mat-batch').innerText = data.meta.batch_no;
+            document.getElementById('mat-supp').innerText = data.meta.supplier;
+
+            // Global verdict
+            const anyNg = data.dimensions.some(d => d.status === 'NG');
+            document.getElementById('final-verdict').innerText = anyNg ? '❌ 不合格 (NG)' : '✅ 合格 (PASS)';
+
+            const container = document.getElementById('stats-content');
+            data.dimensions.forEach((dim, idx) => {
+                const card = document.createElement('div');
+                card.className = `dimension-card ${dim.status === 'NG' ? 'ng' : ''}`;
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <h3>项目: ${dim.name} (规格: ${dim.spec})</h3>
+                        <div style="text-align: right; background: #e6f7ff; padding: 5px 10px; border-radius: 4px;">
+                            <span style="font-weight: bold; color: var(--primary-blue); font-size: 14px;">${dim.conclusion}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-grid">
+                        <div class="chart-card"><canvas id="xbar-${idx}"></canvas></div>
+                        <div class="chart-card"><canvas id="hist-${idx}"></canvas></div>
+                        <div class="chart-card"><canvas id="rchart-${idx}"></canvas></div>
+                        <div class="chart-card"><canvas id="prob-${idx}"></canvas></div>
+                        <div class="chart-card"><canvas id="last10-${idx}"></canvas></div>
+                        <div class="summary-overlay">
+                            <div class="stat-box"><small>Cp / Cpk</small><span>${dim.cp.toFixed(2)} / ${dim.cpk.toFixed(2)}</span></div>
+                            <div class="stat-box"><small>Pp / Ppk</small><span>${dim.pp.toFixed(2)} / ${dim.ppk.toFixed(2)}</span></div>
+                            <div class="stat-box"><small>6σ Spread</small><span>${dim.six_sigma_spread.toFixed(4)}</span></div>
+                            <div class="stat-box"><small>均值 Mean</small><span>${dim.mean.toFixed(4)}</span></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 12px; background: #fffbe6; border-left: 4px solid #ffe58f; font-size: 14px; border-radius: 0 4px 4px 0;">
+                        <strong>🤖 AI 质量建议:</strong> ${dim.suggestion}
+                    </div>
+                `;
+                container.appendChild(card);
+                renderSixPlot(dim, idx);
+            });
+
+            // Render Raw Data Table
+            const rawContainer = document.getElementById('raw-data-content');
+            let rawHtml = '<table class="raw-data"><thead><tr><th>序号</th>';
+            data.dimensions.forEach(dim => {
+                rawHtml += `<th>${dim.name}</th>`;
+            });
+            rawHtml += '</tr></thead><tbody>';
+
+            const rowCount = data.dimensions[0].measurements.length;
+            for (let i = 0; i < rowCount; i++) {
+                rawHtml += `<tr><td>${i + 1}</td>`;
+                data.dimensions.forEach(dim => {
+                    const val = dim.measurements[i];
+                    const isOut = val > dim.usl || val < dim.lsl;
+                    rawHtml += `<td style="${isOut ? 'color: red; font-weight: bold;' : ''}">${val.toFixed(3)}</td>`;
+                });
+                rawHtml += '</tr>';
+            }
+            rawHtml += '</tbody></table>';
+            rawContainer.innerHTML = rawHtml;
+        }
+
+        function renderSixPlot(dim, idx) {
+            // 1. Xbar Chart
+            new Chart(document.getElementById(`xbar-${idx}`), {
+                type: 'line',
+                data: {
+                    labels: dim.subgroups.map((_, i) => i + 1),
+                    datasets: [{
+                        label: 'Xbar',
+                        data: dim.subgroups.map(g => g.mean),
+                        borderColor: '#1890ff',
+                        backgroundColor: '#1890ff',
+                        fill: false
+                    }, {
+                        label: 'UCL', data: new Array(dim.subgroups.length).fill(dim.ucl_x),
+                        borderColor: '#cf1322', borderDash: [5, 5], pointRadius: 0, fill: false
+                    }, {
+                        label: 'LCL', data: new Array(dim.subgroups.length).fill(dim.lcl_x),
+                        borderColor: '#cf1322', borderDash: [5, 5], pointRadius: 0, fill: false
+                    }, {
+                        label: 'Mean', data: new Array(dim.subgroups.length).fill(dim.x_bar_bar),
+                        borderColor: '#389e0d', pointRadius: 0, fill: false
+                    }]
+                },
+                options: { plugins: { title: { display: true, text: 'Xbar 控制图' } }, maintainAspectRatio: false, scales: { x: { display: false } } }
+            });
+
+            // 2. R Chart
+            new Chart(document.getElementById(`rchart-${idx}`), {
+                type: 'line',
+                data: {
+                    labels: dim.subgroups.map((_, i) => i + 1),
+                    datasets: [{
+                        label: 'Range',
+                        data: dim.subgroups.map(g => g.range),
+                        borderColor: '#1890ff',
+                        fill: false
+                    }, {
+                        label: 'UCL', data: new Array(dim.subgroups.length).fill(dim.ucl_r),
+                        borderColor: '#cf1322', borderDash: [5, 5], pointRadius: 0, fill: false
+                    }, {
+                        label: 'R-bar', data: new Array(dim.subgroups.length).fill(dim.r_bar),
+                        borderColor: '#389e0d', pointRadius: 0, fill: false
+                    }]
+                },
+                options: { plugins: { title: { display: true, text: 'R 控制图' } }, maintainAspectRatio: false, scales: { x: { display: false } } }
+            });
+
+            // 3. Histogram
+            const bins = 10;
+            const min = dim.min_val;
+            const max = dim.max_val;
+            const step = (max - min) / bins;
+            const histogramData = new Array(bins).fill(0);
+            dim.measurements.forEach(val => histogramData[Math.min(Math.floor((val - min) / step), bins - 1)]++);
+
+            // Normal Distribution Curve Data
+            const curveData = [];
+            for (let i = 0; i <= 50; i++) {
+                const x = min + (i / 50) * (max - min);
+                const exponent = -0.5 * Math.pow((x - dim.mean) / dim.std_dev_overall, 2);
+                const y = (1 / (dim.std_dev_overall * Math.sqrt(2 * Math.PI))) * Math.pow(Math.E, exponent);
+                // Scaling y to match histogram scale roughly
+                curveData.push({ x: x.toFixed(3), y: y * step * dim.measurements.length });
+            }
+
+            new Chart(document.getElementById(`hist-${idx}`), {
+                data: {
+                    labels: histogramData.map((_, i) => (min + i * step).toFixed(2)),
+                    datasets: [{
+                        type: 'bar',
+                        label: '分布',
+                        data: histogramData,
+                        backgroundColor: 'rgba(24, 144, 255, 0.4)',
+                        order: 2
+                    }, {
+                        type: 'line',
+                        label: '正态曲线',
+                        data: curveData.map(d => d.y),
+                        borderColor: '#cf1322',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        order: 1
+                    }]
+                },
+                options: {
+                    plugins: { title: { display: true, text: '能力直方图' }, legend: { display: false } },
+                    maintainAspectRatio: false,
+                    scales: { x: { display: false } }
+                }
+            });
+
+            // 4. Last 10 Subgroups (Scatter)
+            const last10 = dim.subgroups.slice(-10);
+            const scatterData = [];
+            last10.forEach((g, gi) => {
+                g.values.forEach(v => scatterData.push({ x: gi + 1, y: v }));
+            });
+
+            new Chart(document.getElementById(`last10-${idx}`), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '样本值',
+                        data: scatterData,
+                        backgroundColor: '#1890ff',
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    plugins: { title: { display: true, text: '最后 10 个子组' } },
+                    scales: { x: { ticks: { stepSize: 1 }, display: false } },
+                    maintainAspectRatio: false
+                }
+            });
+
+            // 5. Probability Plot (Simplified Correlation)
+            const sorted = [...dim.measurements].sort((a, b) => a - b);
+            const probData = sorted.map((v, i) => ({ x: v, y: (i + 0.5) / sorted.length }));
+
+            new Chart(document.getElementById(`prob-${idx}`), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '正态概率',
+                        data: probData,
+                        backgroundColor: '#722ed1',
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    plugins: { title: { display: true, text: '正态概率图' } },
+                    scales: { y: { type: 'linear', min: 0, max: 1 }, x: { display: false } },
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        if (Object.keys(iqcData).length > 0) {
+            renderReport(iqcData);
+        }
+    </script>
+</body>
+
+</html>

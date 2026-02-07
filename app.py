@@ -28,15 +28,20 @@ import PyPDF2
 # Add local modules to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Import existing SPC analysis module
-from iqc_report.scripts.iqc_stats import (
-    calculate_subgroups,
-    calculate_process_capability,
-    calculate_control_limits,
-    parse_dimension_from_data,
-    generate_iqc_data,
-    generate_html_report
-)
+# Import existing SPC analysis module using dynamic import (directory has hyphen)
+import importlib.util
+iqc_stats_path = Path(__file__).parent / "iqc-report" / "scripts" / "iqc_stats.py"
+spec = importlib.util.spec_from_file_location("iqc_stats", iqc_stats_path)
+iqc_stats = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(iqc_stats)
+
+# Make functions available directly
+calculate_subgroups = iqc_stats.calculate_subgroups
+calculate_process_capability = iqc_stats.calculate_process_capability
+calculate_control_limits = iqc_stats.calculate_control_limits
+parse_dimension_from_data = iqc_stats.parse_dimension_from_data
+generate_iqc_data = iqc_stats.generate_iqc_data
+generate_html_report = iqc_stats.generate_html_report
 
 # =============================================================================
 # CONFIGURATION
