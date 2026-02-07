@@ -125,6 +125,75 @@ class TestMinerUClientTaskStatus(unittest.TestCase):
         self.assertIn('error', result)
 
 
+class TestMinerUClientTasksEndpoint(unittest.TestCase):
+    """Test tasks endpoint method for retrieving full_md_link."""
+
+    @patch('app.requests.get')
+    def test_get_task_from_tasks_endpoint(self, mock_get):
+        """Should retrieve task with full_md_link from /api/v4/tasks endpoint."""
+        # Setup: Mock tasks endpoint response (real API structure)
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'code': 0,
+            'data': {
+                'list': [
+                    {
+                        'task_id': 'batch-123-abcdef',
+                        'file_name': 'test.pdf',
+                        'state': 'done',
+                        'full_md_link': 'https://cdn.example.com/result.md',
+                        'err_msg': ''
+                    },
+                    {
+                        'task_id': 'other-batch',
+                        'file_name': 'other.pdf',
+                        'state': 'processing',
+                        'full_md_link': None,
+                        'err_msg': ''
+                    }
+                ]
+            }
+        }
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Execute
+        client = MinerUClient(api_key="test-key")
+        result = client.get_task_from_tasks_endpoint("batch-123")
+
+        # Assert
+        self.assertTrue(result['success'])
+        self.assertEqual(result['state'], 'done')
+        self.assertEqual(result['md_url'], 'https://cdn.example.com/result.md')
+
+    @patch('app.requests.get')
+    def test_get_task_from_tasks_endpoint_not_found(self, mock_get):
+        """Should handle task not found in tasks list."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'code': 0,
+            'data': {
+                'list': [
+                    {
+                        'task_id': 'other-batch',
+                        'state': 'done',
+                        'full_md_link': 'https://cdn.example.com/other.md'
+                    }
+                ]
+            }
+        }
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        client = MinerUClient(api_key="test-key")
+        result = client.get_task_from_tasks_endpoint("nonexistent-batch")
+
+        self.assertFalse(result['success'])
+        self.assertIn('error', result)
+
+
 if __name__ == "__main__":
     # Run tests with verbose output
     unittest.main(verbosity=2)

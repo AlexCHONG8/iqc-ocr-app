@@ -17,12 +17,19 @@ import json
 import time
 import re
 import io
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 import streamlit as st
 import requests
+
+# Configure logging for debug output
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Add local modules to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -358,6 +365,19 @@ class MinerUClient:
             response.raise_for_status()
             result = response.json()
 
+            # DEBUG: Log full API response structure
+            logger = logging.getLogger(__name__)
+            logger.debug(f"=== Batch API Response for {batch_id} ===")
+            logger.debug(f"Full response: {result}")
+            logger.debug(f"Top-level keys: {list(result.keys())}")
+            if 'data' in result:
+                logger.debug(f"Data keys: {list(result.get('data', {}).keys())}")
+                extract_result = result.get('data', {}).get('extract_result', [])
+                logger.debug(f"Extract result count: {len(extract_result)}")
+                if extract_result:
+                    logger.debug(f"First result keys: {list(extract_result[0].keys())}")
+                    logger.debug(f"First result: {extract_result[0]}")
+
             if result.get('code') != 0:
                 return {'success': False, 'error': result.get('msg')}
 
@@ -379,6 +399,38 @@ class MinerUClient:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    def get_task_from_tasks_endpoint(self, batch_id: str) -> Dict[str, Any]:
+        """Get task with full_md_link using /api/v4/tasks endpoint.
+
+        The batch endpoint doesn't return full_md_link, but tasks endpoint does.
+        This method searches the tasks list for a matching batch_id.
+        """
+        tasks_url = f"{self.base_url}/tasks"
+        try:
+            response = requests.get(tasks_url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get('code') != 0:
+                return {'success': False, 'error': result.get('msg')}
+
+            tasks = result.get('data', {}).get('list', [])
+
+            # Find task where batch_id is part of task_id
+            for task in tasks:
+                task_id = task.get('task_id', '')
+                if batch_id in task_id:
+                    return {
+                        'success': True,
+                        'state': task.get('state'),
+                        'md_url': task.get('full_md_link'),
+                        'err_msg': task.get('err_msg')
+                    }
+
+            return {'success': False, 'error': 'Task not found in tasks list'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
     def wait_for_completion(self, batch_id: str, timeout: int = 300) -> Dict[str, Any]:
         """Wait for OCR batch task to complete."""
         start_time = time.time()
@@ -391,7 +443,12 @@ class MinerUClient:
 
             state = status.get('state')
             if state == 'done':
-                return {'success': True, 'md_url': status.get('md_url')}
+                # Use tasks endpoint to get full_md_link (batch endpoint doesn't return it)
+                task_result = self.get_task_from_tasks_endpoint(batch_id)
+                if task_result.get('success') and task_result.get('md_url'):
+                    return {'success': True, 'md_url': task_result.get('md_url')}
+                else:
+                    return {'success': False, 'error': 'Task done but no markdown URL available'}
             elif state == 'failed':
                 return {'success': False, 'error': status.get('err_msg', 'Processing failed')}
 
