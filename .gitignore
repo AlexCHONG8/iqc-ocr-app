@@ -16,7 +16,7 @@ ENV/
 env/
 
 # Streamlit
-.streamlit/secrets.toml
+# .streamlit/secrets.toml  # Commented out to allow API key in repo
 
 # IDE
 .vscode/
