@@ -140,8 +140,8 @@ class MinerUClient:
     """Client for MinerU.net OCR API."""
 
     def __init__(self, api_key: Optional[str] = None):
-        """Initialize client with API key from environment or parameter."""
-        self.api_key = api_key or os.getenv("MINERU_API_KEY", "")
+        """Initialize client with API key from parameter."""
+        self.api_key = api_key or ""
         self.base_url = "https://mineru.net/api/v4"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -457,7 +457,7 @@ def render_sidebar():
 
         st.markdown("---")
         st.markdown("### 🔧 System Status")
-        api_key = os.getenv("MINERU_API_KEY", "")
+        api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
         if api_key:
             st.markdown("✅ MinerU.net API: Connected")
         else:
@@ -524,15 +524,14 @@ def render_processing_section(uploaded_file):
         st.info("👆 Please upload a PDF file first.")
         return None
 
-    # Get API key
-    api_key = os.getenv("MINERU_API_KEY", "")
+    # Get API key from Streamlit secrets or environment
+    api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
 
     if not api_key:
         st.error("""
         ❌ MinerU.net API key not configured.
 
-        Please set the `MINERU_API_KEY` environment variable in Streamlit Cloud settings,
-        or in a `.env` file for local development.
+        Please add `MINERU_API_KEY` to `.streamlit/secrets.toml` or Streamlit Cloud settings.
 
         **Get your API key at:** https://mineru.net
         """)
