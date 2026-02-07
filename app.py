@@ -760,9 +760,11 @@ def _extract_specs_from_table(table_data: List[List[str]]) -> Optional[Dict[str,
 
     # Extract position names from previous row if available
     position_names = []
-    if position_row_idx is not None and position_row_idx < len(table_data):
-        for i in range(1, len(table_data[position_row_idx])):
-            position_names.append(table_data[position_row_idx][i])
+    if position_row_idx is not None and 0 <= position_row_idx < len(table_data):
+        position_row = table_data[position_row_idx]
+        if position_row:  # Make sure row is not empty
+            for i in range(1, len(position_row)):
+                position_names.append(position_row[i])
 
     # Extract specs
     for i in range(1, len(spec_row)):
@@ -791,9 +793,15 @@ def _extract_data_with_specs(table_data: List[List[str]], specs_info: Dict[str, 
     Row 0: Header | 结果序号 | 测试结果(1) | 判定 | ...
     Row 1+: Data | 1 | 27.85 | OK | ...
     """
-    specs = specs_info['specs']
-    spec_col_indices = specs_info['spec_col_indices']
+    if not specs_info:
+        return []
+
+    specs = specs_info.get('specs', [])
+    spec_col_indices = specs_info.get('spec_col_indices', [])
     position_names = specs_info.get('position_names', [])
+
+    if not specs or not spec_col_indices:
+        return []
 
     # Skip header row, start from data rows
     data_start_idx = 1
