@@ -1491,6 +1491,10 @@ def render_processing_section(uploaded_file):
     # Enhanced API Key check with validation
     api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
 
+    # Strip triple quotes if present (Streamlit Cloud requires """ for secrets with special chars)
+    if api_key and api_key.startswith('"""') and api_key.endswith('"""'):
+        api_key = api_key[3:-3]  # Remove opening and closing triple quotes
+
     if not api_key:
         st.markdown(f"""
         <div class="status-card error">
