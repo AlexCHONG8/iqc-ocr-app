@@ -538,79 +538,92 @@ class MinerUClient:
 
 def fuzzy_extract_measurements(markdown_text: str) -> List[Dict[str, Any]]:
     """
-    Fallback extractor that searches entire text for measurement patterns.
-    Use this when structured table parsing fails.
+    Aggressive fallback extractor that finds measurements in ANY format.
+    This is the LAST RESORT when structured parsing fails.
     """
     dimensions = []
 
-    # Pattern 1: Find spec-like patterns with ± (e.g., "27.85±0.10")
-    spec_pattern_1 = r'(\d+\.?\d*)[±](\d+\.?\d*)'
-
-    # Pattern 2: Find specs with +/tolerance (e.g., "27.85+0.10" or "27.85+0.10-0.00")
-    spec_pattern_2 = r'(\d+\.?\d*)\s*[\+]\s*(\d+\.?\d*)(?:\s*[-]\s*(\d+\.?\d*))?'
-
-    # Pattern 3: Find range specs (e.g., "27.75 to 27.95")
-    spec_pattern_3 = r'(\d+\.?\d*)\s*(?:to|~|-)\s*(\d+\.?\d*)'
-
-    # Pattern 4: Find position indicators (1, 11, 13, etc.)
-    position_pattern = r'(?:位置|Position|Dimension|Dim|尺寸|[\u68c0\u9a8c][\u4f4d\u7f6e])\s*[:\uff1a]?\s*(\d+)'
-
+    # Split text into lines
     lines = markdown_text.split('\n')
-    current_position = None
-    measurements_buffer = []
 
-    for line_num, line in enumerate(lines):
-        # Check for position indicator
-        pos_match = re.search(position_pattern, line, re.IGNORECASE)
-        if pos_match:
-            current_position = pos_match.group(1)
-            logging.debug(f"Found position: {current_position} at line {line_num}")
+    # Find ALL numbers in the entire document
+    all_numbers = []
+    for line in lines:
+        nums = re.findall(r'\d+\.?\d*', line)
+        all_numbers.extend([float(n) for n in nums if float(n) > 0 and float(n) < 1000])
 
-        # Check for spec pattern
-        for spec_pattern in [spec_pattern_1, spec_pattern_2, spec_pattern_3]:
-            spec_match = re.search(spec_pattern, line)
-            if spec_match:
-                nominal = float(spec_match.group(1))
-                tolerance = float(spec_match.group(2))
+    # If we have lots of numbers (typical inspection report has 100+ measurements)
+    if len(all_numbers) < 30:
+        return dimensions  # Not enough data to be an inspection report
 
-                # Calculate USL and LSL
-                if '±' in line or '+-' in line:
-                    usl = nominal + tolerance
-                    lsl = nominal - tolerance
-                elif '-' in line and spec_match.lastindex >= 3:  # Has LSL
-                    usl = nominal + tolerance
-                    lsl = float(spec_match.group(3)) if spec_match.group(3) else nominal - tolerance
-                else:
-                    usl = nominal + tolerance
-                    lsl = nominal  # Default if only one tolerance
+    # Look for spec patterns anywhere in text
+    spec_pattern = r'(\d+\.?\d*)[±](\d+\.?\d*)'
 
-                # Extract measurements from nearby lines (next 10 lines)
-                measurements = []
-                for i in range(line_num + 1, min(line_num + 11, len(lines))):
-                    next_line = lines[i]
-                    # Find all numbers in the line
-                    nums = re.findall(r'\d+\.?\d*', next_line)
-                    for num_str in nums:
-                        try:
-                            num = float(num_str)
-                            # Only accept reasonable measurement values (between lsl and usl, or close to nominal)
-                            if lsl <= num <= usl or abs(num - nominal) < tolerance * 2:
-                                measurements.append(num)
-                        except:
-                            pass
+    specs_found = re.findall(spec_pattern, markdown_text)
 
-                if measurements and current_position:
+    if not specs_found:
+        # Try alternative spec patterns
+        spec_pattern_alt = r'(\d+\.?\d*)\s*[\+]\s*(\d+\.?\d*)'
+        specs_found = re.findall(spec_pattern_alt, markdown_text)
+
+    if not specs_found:
+        # Last resort: Look for numbers that repeat 50+ times (measurements)
+        # Group similar numbers and count them
+        from collections import Counter
+        rounded = [round(n, 2) for n in all_numbers]
+        counts = Counter(rounded)
+
+        # Find numbers that appear 40-60 times (typical for 50 measurements per point)
+        potential_nominals = [n for n, c in counts.items() if 40 <= c <= 60]
+
+        if len(potential_nominals) >= 1:
+            # Create dimensions from these
+            for i, nominal in enumerate(potential_nominals[:3]):  # Max 3 points
+                # Estimate tolerance from variation
+                measurements_for_point = [n for n in all_numbers if abs(n - nominal) < 1.0]
+                if len(measurements_for_point) >= 30:
+                    std_dev = statistics.stdev(measurements_for_point[:50])
+                    tolerance = round(std_dev * 3, 2) if std_dev > 0 else 0.10
+
                     dimensions.append({
-                        'position': current_position,
-                        'position_name': current_position,
-                        'spec': f"{nominal}±{tolerance}",
-                        'nominal': nominal,
-                        'usl': usl,
-                        'lsl': lsl,
-                        'measurements': measurements[:25]  # Limit to 25 measurements
+                        'position': str(i + 1),
+                        'position_name': f"Point {i + 1}",
+                        'spec': f"{nominal:.2f}±{tolerance:.2f}",
+                        'nominal': round(nominal, 2),
+                        'usl': round(nominal + tolerance, 2),
+                        'lsl': round(nominal - tolerance, 2),
+                        'measurements': measurements_for_point[:50]
                     })
-                    logging.debug(f"Fuzzy extracted: position={current_position}, spec={nominal}±{tolerance}, measurements={len(measurements)}")
-                    break
+
+            return dimensions
+
+    # Use found specs to extract measurements
+    for i, (nom_str, tol_str) in enumerate(specs_found[:3]):  # Max 3 dimensions
+        nominal = float(nom_str)
+        tolerance = float(tol_str)
+
+        usl = nominal + tolerance
+        lsl = nominal - tolerance
+
+        # Find measurements close to this nominal
+        measurements = []
+        for num in all_numbers:
+            if lsl <= num <= usl or abs(num - nominal) < tolerance * 2:
+                measurements.append(num)
+
+        # Remove duplicates and limit
+        measurements = sorted(list(set(measurements)))[:50]
+
+        if measurements:
+            dimensions.append({
+                'position': str(i + 1),
+                'position_name': f"Point {i + 1}",
+                'spec': f"{nominal}±{tolerance}",
+                'nominal': nominal,
+                'usl': usl,
+                'lsl': lsl,
+                'measurements': measurements
+            })
 
     return dimensions
 
