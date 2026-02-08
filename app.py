@@ -536,6 +536,85 @@ class MinerUClient:
 # DATA EXTRACTION FROM OCR RESULTS
 # =============================================================================
 
+def fuzzy_extract_measurements(markdown_text: str) -> List[Dict[str, Any]]:
+    """
+    Fallback extractor that searches entire text for measurement patterns.
+    Use this when structured table parsing fails.
+    """
+    dimensions = []
+
+    # Pattern 1: Find spec-like patterns with ± (e.g., "27.85±0.10")
+    spec_pattern_1 = r'(\d+\.?\d*)[±](\d+\.?\d*)'
+
+    # Pattern 2: Find specs with +/tolerance (e.g., "27.85+0.10" or "27.85+0.10-0.00")
+    spec_pattern_2 = r'(\d+\.?\d*)\s*[\+]\s*(\d+\.?\d*)(?:\s*[-]\s*(\d+\.?\d*))?'
+
+    # Pattern 3: Find range specs (e.g., "27.75 to 27.95")
+    spec_pattern_3 = r'(\d+\.?\d*)\s*(?:to|~|-)\s*(\d+\.?\d*)'
+
+    # Pattern 4: Find position indicators (1, 11, 13, etc.)
+    position_pattern = r'(?:位置|Position|Dimension|Dim|尺寸|[\u68c0\u9a8c][\u4f4d\u7f6e])\s*[:\uff1a]?\s*(\d+)'
+
+    lines = markdown_text.split('\n')
+    current_position = None
+    measurements_buffer = []
+
+    for line_num, line in enumerate(lines):
+        # Check for position indicator
+        pos_match = re.search(position_pattern, line, re.IGNORECASE)
+        if pos_match:
+            current_position = pos_match.group(1)
+            logging.debug(f"Found position: {current_position} at line {line_num}")
+
+        # Check for spec pattern
+        for spec_pattern in [spec_pattern_1, spec_pattern_2, spec_pattern_3]:
+            spec_match = re.search(spec_pattern, line)
+            if spec_match:
+                nominal = float(spec_match.group(1))
+                tolerance = float(spec_match.group(2))
+
+                # Calculate USL and LSL
+                if '±' in line or '+-' in line:
+                    usl = nominal + tolerance
+                    lsl = nominal - tolerance
+                elif '-' in line and spec_match.lastindex >= 3:  # Has LSL
+                    usl = nominal + tolerance
+                    lsl = float(spec_match.group(3)) if spec_match.group(3) else nominal - tolerance
+                else:
+                    usl = nominal + tolerance
+                    lsl = nominal  # Default if only one tolerance
+
+                # Extract measurements from nearby lines (next 10 lines)
+                measurements = []
+                for i in range(line_num + 1, min(line_num + 11, len(lines))):
+                    next_line = lines[i]
+                    # Find all numbers in the line
+                    nums = re.findall(r'\d+\.?\d*', next_line)
+                    for num_str in nums:
+                        try:
+                            num = float(num_str)
+                            # Only accept reasonable measurement values (between lsl and usl, or close to nominal)
+                            if lsl <= num <= usl or abs(num - nominal) < tolerance * 2:
+                                measurements.append(num)
+                        except:
+                            pass
+
+                if measurements and current_position:
+                    dimensions.append({
+                        'position': current_position,
+                        'position_name': current_position,
+                        'spec': f"{nominal}±{tolerance}",
+                        'nominal': nominal,
+                        'usl': usl,
+                        'lsl': lsl,
+                        'measurements': measurements[:25]  # Limit to 25 measurements
+                    })
+                    logging.debug(f"Fuzzy extracted: position={current_position}, spec={nominal}±{tolerance}, measurements={len(measurements)}")
+                    break
+
+    return dimensions
+
+
 def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]:
     """
     Parse HTML tables AND Markdown tables from MinerU.net OCR output to extract dimension data.
@@ -1041,13 +1120,22 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
         # Enhanced debugging and user feedback
         debug_mode = st.session_state.get('debug_mode', False)
 
+        # Parsing statistics
+        parsing_stats = {
+            'tables_found': 0,
+            'specs_found': 0,
+            'measurements_found': 0,
+            'dimensions_extracted': len(dimensions)
+        }
+
         if debug_mode:
             st.markdown("---")
             st.markdown("### 🔍 OCR Parsing Debug Info")
 
-            # Show what tables were found
+            # Count tables in OCR output
             import re
             table_count = len(re.findall(r'\|.*\|', markdown_text)) // 3  # Rough estimate
+            parsing_stats['tables_found'] = table_count
             st.info(f"📊 Found approximately {table_count} tables in OCR output")
 
             # Show sample of OCR output
@@ -1057,6 +1145,11 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
             # Show what dimensions were extracted
             if dimensions:
                 st.success(f"✅ Parsed {len(dimensions)} dimension(s) from tables")
+                parsing_stats['specs_found'] = len(dimensions)
+                for dim in dimensions:
+                    if isinstance(dim, dict):
+                        parsing_stats['measurements_found'] += len(dim.get('measurements', []))
+                st.json(parsing_stats)
                 for i, dim in enumerate(dimensions):
                     if isinstance(dim, dict):
                         st.markdown(f"**Dimension {i+1}:**")
@@ -1070,6 +1163,7 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
 
         # Debug logging
         logging.info(f"Extracted {len(dimensions)} dimensions from OCR")
+        logging.info(f"Parsing stats: {parsing_stats}")
         for i, dim in enumerate(dimensions):
             logging.info(f"  Dimension {i}: type={type(dim).__name__}, is_dict={isinstance(dim, dict)}")
             if not isinstance(dim, dict):
@@ -1113,6 +1207,37 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
                 if debug_mode:
                     with st.expander("🔍 Full Error Details"):
                         st.code(traceback.format_exc(), language="python")
+
+        # FUZZY FALLBACK: If structured parsing failed, try fuzzy extraction
+        if not dimensions_data:
+            st.info("🔍 Structured table parsing failed. Trying fuzzy extraction...")
+            fuzzy_dimensions = fuzzy_extract_measurements(markdown_text)
+
+            if fuzzy_dimensions:
+                st.success(f"✅ Fuzzy extraction found {len(fuzzy_dimensions)} dimension(s)!")
+                parsing_stats['dimensions_extracted'] = len(fuzzy_dimensions)
+
+                if debug_mode:
+                    st.markdown("**Fuzzy extracted dimensions:**")
+                    for i, dim in enumerate(fuzzy_dimensions):
+                        st.markdown(f"**Dimension {i+1}:**")
+                        st.json(dim)
+
+                # Process fuzzy extracted dimensions
+                for dim_data in fuzzy_dimensions:
+                    try:
+                        dim_result = parse_dimension_from_data(
+                            dim_data['position'],
+                            dim_data['spec'],
+                            dim_data['measurements']
+                        )
+                        dimensions_data.append(dim_result)
+                    except Exception as e:
+                        error_msg = f"Fuzzy extraction error: {str(e)[:100]}"
+                        parsing_errors.append(error_msg)
+            else:
+                st.warning("⚠️ Fuzzy extraction also found no dimensions")
+                parsing_stats['dimensions_extracted'] = 0
 
         # Enhanced error message when no dimensions extracted
         if not dimensions_data:
@@ -1544,16 +1669,32 @@ def render_processing_section(uploaded_file):
                             </div>
                             """, unsafe_allow_html=True)
 
+                        # Download OCR output button (always show for debugging)
+                        st.download_button(
+                            label="📥 Download OCR Output (For Debugging)",
+                            data=markdown_text,
+                            file_name=f"ocr_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                            mime="text/markdown",
+                            help="Download raw OCR results to see exactly what was captured from your PDF"
+                        )
+
                         # Debug mode: Show raw OCR results
                         if st.session_state.get('debug_mode', False):
-                            with st.expander("🔍 Raw OCR Results (Debug)", expanded=False):
-                                st.markdown("#### 📝 Extracted Markdown Preview")
-                                st.markdown(f"*First 2000 characters:*")
-                                st.code(markdown_text[:2000], language="markdown")
-                                st.markdown(f"*Total length: {len(markdown_text)} characters*")
+                            with st.expander("🔍 Raw OCR Results (Debug)", expanded=True):
+                                st.markdown("#### 📝 Full OCR Output")
+                                st.markdown(f"*Total characters: {len(markdown_text):,}*")
+                                st.markdown(f"*Lines: {markdown_text.count(chr(10)):,}*")
+
+                                # Show first 5000 chars
+                                st.markdown("**First 5000 characters:**")
+                                st.code(markdown_text[:5000], language="markdown")
+
+                                if len(markdown_text) > 5000:
+                                    st.markdown(f"*... and {len(markdown_text) - 5000:,} more characters*")
                         else:
                             # Suggest debug mode for troubleshooting
                             st.info("💡 **Tip:** Enable 🔍 **Debug Mode** in the sidebar to see raw OCR results and troubleshoot parsing issues.")
+                            st.markdown("**Why?** Debug mode shows exactly what the OCR captured, helping you understand why parsing might have failed.")
                     else:
                         # Better error diagnostics
                         if not md_url:
