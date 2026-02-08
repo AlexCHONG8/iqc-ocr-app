@@ -22,6 +22,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 import streamlit as st
 import requests
 
@@ -1034,6 +1038,36 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
         # Extract dimension data from HTML tables
         dimensions = parse_html_tables_for_dimensions(markdown_text)
 
+        # Enhanced debugging and user feedback
+        debug_mode = st.session_state.get('debug_mode', False)
+
+        if debug_mode:
+            st.markdown("---")
+            st.markdown("### 🔍 OCR Parsing Debug Info")
+
+            # Show what tables were found
+            import re
+            table_count = len(re.findall(r'\|.*\|', markdown_text)) // 3  # Rough estimate
+            st.info(f"📊 Found approximately {table_count} tables in OCR output")
+
+            # Show sample of OCR output
+            with st.expander("📄 Raw OCR Output (first 3000 chars)", expanded=False):
+                st.code(markdown_text[:3000], language="markdown")
+
+            # Show what dimensions were extracted
+            if dimensions:
+                st.success(f"✅ Parsed {len(dimensions)} dimension(s) from tables")
+                for i, dim in enumerate(dimensions):
+                    if isinstance(dim, dict):
+                        st.markdown(f"**Dimension {i+1}:**")
+                        st.json(dim)
+            else:
+                st.warning("⚠️ No dimensions parsed from tables")
+                st.markdown("**What was looked for:**")
+                st.markdown("- Tables with column headers like: 检验位置, 检验标准")
+                st.markdown("- Specification patterns like: 27.85±0.10 or 27.80+0.10-0.00")
+                st.markdown("- Measurement rows with numeric data")
+
         # Debug logging
         logging.info(f"Extracted {len(dimensions)} dimensions from OCR")
         for i, dim in enumerate(dimensions):
@@ -1043,16 +1077,25 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
 
         # Calculate statistics for each dimension
         dimensions_data = []
+        parsing_errors = []
+
         for dim_data in dimensions:
             try:
                 # Defensive: Ensure dim_data is a dict before processing
                 if not isinstance(dim_data, dict):
-                    st.warning(f"⚠️ Warning: Invalid dimension data type ({type(dim_data).__name__}). Skipping.")
+                    error_msg = f"Invalid dimension data type ({type(dim_data).__name__})"
+                    parsing_errors.append(error_msg)
+                    if debug_mode:
+                        st.warning(f"⚠️ Warning: {error_msg}")
                     continue
 
                 # Ensure required fields exist
                 if 'position' not in dim_data or 'spec' not in dim_data or 'measurements' not in dim_data:
-                    st.warning(f"⚠️ Warning: Dimension missing required fields. Skipping.")
+                    error_msg = f"Dimension missing required fields: {list(dim_data.keys())}"
+                    parsing_errors.append(error_msg)
+                    if debug_mode:
+                        st.warning(f"⚠️ Warning: {error_msg}")
+                        st.json(dim_data)
                     continue
 
                 dim_result = parse_dimension_from_data(
@@ -1063,13 +1106,78 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
                 dimensions_data.append(dim_result)
             except Exception as e:
                 import traceback
+                error_msg = str(e)
+                parsing_errors.append(error_msg)
                 position_info = dim_data.get('position') if isinstance(dim_data, dict) else f"Invalid type: {type(dim_data).__name__}"
-                st.warning(f"⚠️ Warning: Could not process dimension '{position_info}': {str(e)[:100]}")
-                with st.expander("🔍 Full Error Details"):
-                    st.code(traceback.format_exc(), language="python")
+                st.warning(f"⚠️ Warning: Could not process dimension '{position_info}': {error_msg[:100]}")
+                if debug_mode:
+                    with st.expander("🔍 Full Error Details"):
+                        st.code(traceback.format_exc(), language="python")
 
+        # Enhanced error message when no dimensions extracted
         if not dimensions_data:
-            st.error("❌ No valid dimension data could be extracted. Please check the PDF format.")
+            st.markdown("---")
+            st.markdown("### ❌ No Valid Dimension Data Extracted")
+
+            st.markdown("""
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+                <div style="font-size: 0.875rem; color: #92400e;">
+                    <strong>🔍 <strong>What This Means:</strong></strong>
+                    <p style="margin: 0.5rem 0;">The OCR successfully read your PDF, but the measurement tables couldn't be parsed. This usually happens when:</p>
+                    <ul style="margin: 0.5rem 0; padding-left: 1.25rem;">
+                        <li>PDF format doesn't match the expected inspection report template</li>
+                        <li>OCR didn't capture table structure correctly (text garbled, columns misaligned)</li>
+                        <li>Table headers or format are different from what the parser expects</li>
+                        <li>Measurements are in a different language or format</li>
+                    </ul>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Show troubleshooting steps
+            with st.expander("🔧 Troubleshooting Steps", expanded=True):
+                st.markdown("""
+                **Step 1: Check OCR Quality (Debug Mode)**
+                1. Enable 🔍 **Debug Mode** in sidebar
+                2. Re-upload the PDF
+                3. Look at "Raw OCR Output" to see what was captured
+                4. Check if tables are readable and properly formatted
+
+                **Step 2: Verify PDF Format**
+                Your PDF should contain:
+                - A table with inspection positions (检验位置)
+                - Specification limits (检验标准) like: 27.85±0.10
+                - Measurement data rows with numeric values
+
+                **Step 3: Try Demo Mode**
+                - Enable 🎯 **Demo Mode** in sidebar
+                - This lets you see how the app works with perfect data
+                - Compare your PDF format with the demo format
+
+                **Step 4: Common Fixes**
+                - Re-scan PDF at higher resolution (300 DPI minimum)
+                - Ensure PDF is not password protected
+                - Try cropping to just the inspection table
+                - Check if text is selectable (not just an image)
+                """)
+
+            # Show parsing errors if any
+            if parsing_errors:
+                with st.expander("📋 Parsing Errors Found"):
+                    for i, error in enumerate(set(parsing_errors), 1):
+                        st.markdown(f"{i}. {error}")
+
+            # Show helpful tips
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("💡 **Quick Test:**")
+                st.markdown("Enable **Debug Mode** and re-upload to see what OCR captured.")
+
+            with col2:
+                st.markdown("🎯 **Demo Mode:**")
+                st.markdown("Test the app with sample data to see expected format.")
+
             return None
 
         return generate_iqc_data(
@@ -1097,6 +1205,20 @@ def render_header():
         <div class="badge">INTERNAL USE ONLY</div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Debug mode indicator
+    if st.session_state.get('debug_mode', False):
+        st.markdown("""
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem; margin: 1rem 0; border-radius: 4px;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.25rem;">🔍</span>
+                <div>
+                    <div style="font-weight: 600; color: #92400e;">Debug Mode Enabled</div>
+                    <div style="font-size: 0.875rem; color: #b45309;">Raw OCR output and parsing details will be shown</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 def render_sidebar():
     """Render sidebar with app info and controls."""
@@ -1131,6 +1253,34 @@ def render_sidebar():
         4. 📊 Review statistics
         5. 📄 Generate report
         """)
+
+        st.markdown("---")
+
+        # Deployment Health Check
+        with st.expander("🏥 Deployment Health", expanded=False):
+            st.markdown("**System Checks:**")
+
+            # Check API Key
+            api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
+            if api_key and len(api_key) > 100:
+                st.success("✅ API Key: Configured")
+                st.caption(f"Length: {len(api_key)} chars")
+            elif api_key:
+                st.warning("⚠️ API Key: Short")
+                st.caption(f"Length: {len(api_key)} chars (expected 300+)")
+            else:
+                st.error("❌ API Key: Missing")
+
+            # Environment
+            st.markdown("**Environment:**")
+            st.markdown(f"- Streamlit: {st.__version__}")
+            st.markdown(f"- Max upload: 200MB")
+
+            # Session Status
+            if st.session_state.get('processing'):
+                st.info("🔄 Processing active")
+            if st.session_state.get('ocr_results'):
+                st.success("✅ OCR complete")
 
         st.markdown("---")
 
@@ -1213,7 +1363,7 @@ def render_processing_section(uploaded_file):
         """, unsafe_allow_html=True)
         return None
 
-    # API Key check
+    # Enhanced API Key check with validation
     api_key = st.secrets.get("MINERU_API_KEY", os.getenv("MINERU_API_KEY", ""))
 
     if not api_key:
@@ -1224,14 +1374,40 @@ def render_processing_section(uploaded_file):
                 <div>
                     <div style="font-weight: 600; color: #991b1b;">API Key Not Configured</div>
                     <div style="font-size: 0.875rem; color: #7f1d1d;">
-                        Add <code>MINERU_API_KEY</code> to Streamlit Cloud secrets<br/>
-                        <a href="https://mineru.net" target="_blank">Get API Key →</a>
+                        Add <code>MINERU_API_KEY</code> to Streamlit Cloud secrets
                     </div>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        with st.expander("🔧 How to Fix - Step by Step", expanded=True):
+            st.markdown("""
+            **Quick Setup (2 minutes):**
+
+            1. **Get API Key**
+               - Go to https://mineru.net
+               - Log in to your account
+               - Copy your API key from dashboard
+
+            2. **Add to Streamlit Cloud**
+               - Go to your app in Streamlit Cloud
+               - Click: Settings → Secrets
+               - Add secret: `MINERU_API_KEY=paste_your_key_here`
+               - Click Save
+
+            3. **Restart App**
+               - Click Restart button in Streamlit Cloud
+               - Wait for app to reload (30 seconds)
+               - Try uploading PDF again
+            """)
         return None
+
+    # Validate API key format
+    if len(api_key) < 100:
+        st.warning(f"⚠️ API key seems short ({len(api_key)} chars, expected 300+). May not work correctly.")
+    elif not (api_key.startswith('ey') or api_key.startswith('sk-')):
+        st.warning("⚠️ API key format unusual. Expected JWT token starting with 'ey'.")
 
     col1, col2, col3 = st.columns([1, 2, 1])
 
@@ -1263,17 +1439,60 @@ def render_processing_section(uploaded_file):
                     upload_result = client.upload_pdf(pdf_bytes, uploaded_file.name)
 
                 if not upload_result.get('success'):
+                    error_msg = upload_result.get('error', 'Unknown error')
+
+                    # Categorize error for better user guidance
+                    if 'timeout' in error_msg.lower():
+                        error_title = "Upload Timeout"
+                        suggestions = [
+                            "PDF file too large (try compressing)",
+                            "Network connection slow",
+                            "Service temporarily busy"
+                        ]
+                    elif '401' in error_msg or 'auth' in error_msg.lower():
+                        error_title = "Authentication Failed"
+                        suggestions = [
+                            "API key is invalid or expired",
+                            "Check MINERU_API_KEY in Streamlit Cloud secrets",
+                            "Get a new key from https://mineru.net"
+                        ]
+                    elif 'connection' in error_msg.lower():
+                        error_title = "Connection Error"
+                        suggestions = [
+                            "Cannot reach MinerU.net",
+                            "Check your internet connection",
+                            "Service might be temporarily down"
+                        ]
+                    else:
+                        error_title = "Upload Failed"
+                        suggestions = [
+                            "Ensure PDF is not password protected",
+                            "Check PDF size (max 200MB)",
+                            "Try a different PDF file"
+                        ]
+
                     st.markdown(f"""
                     <div class="status-card error">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.5rem;">❌</span>
                             <div>
-                                <div style="font-weight: 600; color: #991b1b;">Upload Failed</div>
-                                <div style="font-size: 0.875rem; color: #7f1d1d;">{upload_result.get('error', 'Unknown error')}</div>
+                                <div style="font-weight: 600; color: #991b1b;">{error_title}</div>
+                                <div style="font-size: 0.875rem; color: #7f1d1d;">{error_msg[:200]}</div>
                             </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    with st.expander("🔧 Troubleshooting Steps", expanded=True):
+                        st.markdown("**Possible Solutions:**")
+                        for i, suggestion in enumerate(suggestions, 1):
+                            st.markdown(f"{i}. {suggestion}")
+
+                        if st.session_state.get('debug_mode', False):
+                            st.markdown("---")
+                            st.markdown("**Full Error Message:**")
+                            st.code(error_msg, language="text")
+
                     st.session_state.processing = False
                     return None
 
@@ -1332,7 +1551,9 @@ def render_processing_section(uploaded_file):
                                 st.markdown(f"*First 2000 characters:*")
                                 st.code(markdown_text[:2000], language="markdown")
                                 st.markdown(f"*Total length: {len(markdown_text)} characters*")
-
+                        else:
+                            # Suggest debug mode for troubleshooting
+                            st.info("💡 **Tip:** Enable 🔍 **Debug Mode** in the sidebar to see raw OCR results and troubleshoot parsing issues.")
                     else:
                         # Better error diagnostics
                         if not md_url:
@@ -1350,17 +1571,59 @@ def render_processing_section(uploaded_file):
                         st.session_state.processing = False
                         return None
                 else:
+                    error_msg = result.get('error', 'Unknown error')
+
+                    # Categorize processing error
+                    if 'timeout' in error_msg.lower():
+                        error_title = "Processing Timeout"
+                        details = [
+                            "OCR processing took too long (>5 minutes)",
+                            "PDF might be very large or complex",
+                            "Service experiencing high load"
+                        ]
+                    elif 'failed' in error_msg.lower():
+                        error_title = "OCR Processing Failed"
+                        details = [
+                            "Server could not process the PDF",
+                            "PDF might be corrupted or low quality",
+                            "Unsupported PDF format"
+                        ]
+                    else:
+                        error_title = "Processing Error"
+                        details = [
+                            "Unexpected error during OCR processing",
+                            "Please try again",
+                            "Contact support if issue persists"
+                        ]
+
                     st.markdown(f"""
                     <div class="status-card error">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.5rem;">⚠️</span>
                             <div>
-                                <div style="font-weight: 600; color: #991b1b;">Processing Failed</div>
-                                <div style="font-size: 0.875rem; color: #7f1d1d;">{result.get('error', 'Unknown error')}</div>
+                                <div style="font-weight: 600; color: #991b1b;">{error_title}</div>
+                                <div style="font-size: 0.875rem; color: #7f1d1d;">{error_msg[:200]}</div>
                             </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    with st.expander("🔍 Error Details & Solutions", expanded=True):
+                        st.markdown("**What Happened:**")
+                        for detail in details:
+                            st.markdown(f"• {detail}")
+
+                        st.markdown("---")
+                        st.markdown("**Try These Steps:**")
+                        st.markdown("1. Refresh the page and try again")
+                        st.markdown("2. Check if PDF file is valid (not corrupted)")
+                        st.markdown("3. Try with a smaller, simpler PDF first")
+
+                        if st.session_state.get('debug_mode', False):
+                            st.markdown("---")
+                            st.markdown("**Full Error Message:**")
+                            st.code(error_msg, language="text")
+
                     st.session_state.processing = False
                     return None
 
