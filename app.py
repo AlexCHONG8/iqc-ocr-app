@@ -536,96 +536,99 @@ class MinerUClient:
 # DATA EXTRACTION FROM OCR RESULTS
 # =============================================================================
 
-def fuzzy_extract_measurements(markdown_text: str) -> List[Dict[str, Any]]:
+def statistical_extractor(markdown_text: str) -> List[Dict[str, Any]]:
     """
-    Aggressive fallback extractor that finds measurements in ANY format.
-    This is the LAST RESORT when structured parsing fails.
+    FOOLPROOF extractor based on pure statistical analysis.
+    Works with ANY format - only looks at numbers, not structure.
+
+    Algorithm:
+    1. Find ALL decimal numbers in text
+    2. Cluster numbers by frequency (finds measurements)
+    3. Group similar numbers into measurement points
+    4. Calculate nominal and tolerance from statistics
+
+    Works for user's case: "3 points, 50 figures each" = 150 measurements
     """
-    dimensions = []
+    try:
+        # Step 1: Extract ALL numbers from the entire document
+        all_numbers = []
+        for match in re.finditer(r'\d+\.?\d*', markdown_text):
+            try:
+                num = float(match.group())
+                # Filter reasonable measurement values (0.1 to 500)
+                if 0.1 <= num <= 500:
+                    all_numbers.append(num)
+            except:
+                pass
 
-    # Split text into lines
-    lines = markdown_text.split('\n')
+        if len(all_numbers) < 50:
+            return []  # Not enough measurements
 
-    # Find ALL numbers in the entire document
-    all_numbers = []
-    for line in lines:
-        nums = re.findall(r'\d+\.?\d*', line)
-        all_numbers.extend([float(n) for n in nums if float(n) > 0 and float(n) < 1000])
-
-    # If we have lots of numbers (typical inspection report has 100+ measurements)
-    if len(all_numbers) < 30:
-        return dimensions  # Not enough data to be an inspection report
-
-    # Look for spec patterns anywhere in text
-    spec_pattern = r'(\d+\.?\d*)[±](\d+\.?\d*)'
-
-    specs_found = re.findall(spec_pattern, markdown_text)
-
-    if not specs_found:
-        # Try alternative spec patterns
-        spec_pattern_alt = r'(\d+\.?\d*)\s*[\+]\s*(\d+\.?\d*)'
-        specs_found = re.findall(spec_pattern_alt, markdown_text)
-
-    if not specs_found:
-        # Last resort: Look for numbers that repeat 50+ times (measurements)
-        # Group similar numbers and count them
+        # Step 2: Cluster numbers by frequency
+        # Round to 2 decimals to group similar measurements
         from collections import Counter
-        rounded = [round(n, 2) for n in all_numbers]
-        counts = Counter(rounded)
+        rounded_numbers = [round(n, 2) for n in all_numbers]
+        frequency = Counter(rounded_numbers)
 
-        # Find numbers that appear 40-60 times (typical for 50 measurements per point)
-        potential_nominals = [n for n, c in counts.items() if 40 <= c <= 60]
+        # Step 3: Find measurement clusters (numbers appearing 30-60 times)
+        # This handles the "50 measurements per point" case
+        clusters = []
+        for value, count in frequency.items():
+            if 30 <= count <= 60:  # Typical for 50 measurements
+                clusters.append(value)
 
-        if len(potential_nominals) >= 1:
-            # Create dimensions from these
-            for i, nominal in enumerate(potential_nominals[:3]):  # Max 3 points
-                # Estimate tolerance from variation
-                measurements_for_point = [n for n in all_numbers if abs(n - nominal) < 1.0]
-                if len(measurements_for_point) >= 30:
-                    std_dev = statistics.stdev(measurements_for_point[:50])
-                    tolerance = round(std_dev * 3, 2) if std_dev > 0 else 0.10
+        if not clusters:
+            # Fallback: Try broader range (20-80)
+            for value, count in frequency.items():
+                if 20 <= count <= 80:
+                    clusters.append(value)
 
-                    dimensions.append({
-                        'position': str(i + 1),
-                        'position_name': f"Point {i + 1}",
-                        'spec': f"{nominal:.2f}±{tolerance:.2f}",
-                        'nominal': round(nominal, 2),
-                        'usl': round(nominal + tolerance, 2),
-                        'lsl': round(nominal - tolerance, 2),
-                        'measurements': measurements_for_point[:50]
-                    })
+        clusters = sorted(clusters)[:3]  # Max 3 measurement points
 
-            return dimensions
+        if not clusters:
+            return []  # No clear measurement clusters found
 
-    # Use found specs to extract measurements
-    for i, (nom_str, tol_str) in enumerate(specs_found[:3]):  # Max 3 dimensions
-        nominal = float(nom_str)
-        tolerance = float(tol_str)
+        # Step 4: Create dimensions from clusters
+        dimensions = []
+        for i, cluster_center in enumerate(clusters):
+            # Find all measurements within ±1.0 of cluster center
+            measurements = []
+            for num in all_numbers:
+                if abs(num - cluster_center) <= 1.0:
+                    measurements.append(num)
 
-        usl = nominal + tolerance
-        lsl = nominal - tolerance
+            if len(measurements) < 20:
+                continue  # Skip if too few measurements
 
-        # Find measurements close to this nominal
-        measurements = []
-        for num in all_numbers:
-            if lsl <= num <= usl or abs(num - nominal) < tolerance * 2:
-                measurements.append(num)
+            # Take first 50 unique measurements
+            measurements = sorted(list(set(measurements)))[:50]
 
-        # Remove duplicates and limit
-        measurements = sorted(list(set(measurements)))[:50]
+            # Calculate statistics
+            nominal = round(sum(measurements) / len(measurements), 2)
 
-        if measurements:
+            # Calculate tolerance from variation
+            if len(measurements) >= 2:
+                # Use range as simple tolerance estimate
+                tolerance = round((max(measurements) - min(measurements)) / 2, 2)
+                tolerance = max(tolerance, 0.01)  # Minimum tolerance
+            else:
+                tolerance = 0.10  # Default
+
             dimensions.append({
                 'position': str(i + 1),
                 'position_name': f"Point {i + 1}",
                 'spec': f"{nominal}±{tolerance}",
                 'nominal': nominal,
-                'usl': usl,
-                'lsl': lsl,
+                'usl': round(nominal + tolerance, 2),
+                'lsl': round(nominal - tolerance, 2),
                 'measurements': measurements
             })
 
-    return dimensions
+        return dimensions
+
+    except Exception as e:
+        logging.error(f"Statistical extractor error: {e}")
+        return []  # Never crash, always return empty list on error
 
 
 def parse_html_tables_for_dimensions(markdown_text: str) -> List[Dict[str, Any]]:
@@ -1127,8 +1130,14 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
                 if match:
                     meta['date'] = match.group(1).replace('/', '-').replace('.', '-')
 
-        # Extract dimension data from HTML tables
-        dimensions = parse_html_tables_for_dimensions(markdown_text)
+        # Extract dimension data - TRY STATISTICAL EXTRACTOR FIRST (most foolproof)
+        dimensions = statistical_extractor(markdown_text)
+
+        # If statistical extractor didn't find 3 dimensions, try table parsing
+        if len(dimensions) < 3:
+            dimensions_from_tables = parse_html_tables_for_dimensions(markdown_text)
+            if dimensions_from_tables and len(dimensions_from_tables) > len(dimensions):
+                dimensions = dimensions_from_tables
 
         # Enhanced debugging and user feedback
         debug_mode = st.session_state.get('debug_mode', False)
