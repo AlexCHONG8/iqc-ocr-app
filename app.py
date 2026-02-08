@@ -1133,7 +1133,6 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
             st.markdown("### 🔍 OCR Parsing Debug Info")
 
             # Count tables in OCR output
-            import re
             table_count = len(re.findall(r'\|.*\|', markdown_text)) // 3  # Rough estimate
             parsing_stats['tables_found'] = table_count
             st.info(f"📊 Found approximately {table_count} tables in OCR output")
