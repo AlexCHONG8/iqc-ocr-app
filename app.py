@@ -1034,11 +1034,11 @@ def _extract_dimensions_from_table_data(table_data: List[List[str]]) -> List[Dic
 
         # Extract measurements with CORRECT column mapping
         # Data row structure: [seq, val1, status1, val2, status2, val3, status3, ...]
-        # Spec columns: [1, 2, 3] (spec1, spec2, spec3)
-        # Mapping: data_col = spec_col * 2 - 1
+        # Spec columns: [1, 2, 3] or [1, 3, 5] (actual column indices with specs)
+        # CORRECT: Use the actual spec column index directly
         for i, spec_col_idx in enumerate(spec_col_indices):
-            # CORRECT FORMULA: data_col = spec_col * 2 - 1
-            data_col_idx = spec_col_idx * 2 - 1
+            # FIXED: data_col_idx = spec_col_idx (not spec_col_idx * 2 - 1)
+            data_col_idx = spec_col_idx
 
             if data_col_idx < len(row):
                 val_str = row[data_col_idx]
