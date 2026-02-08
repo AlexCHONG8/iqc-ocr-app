@@ -23,3 +23,4 @@ numpy>=1.24.0
 
 # Additional utilities
 python-dateutil>=2.8.0
+python-dotenv>=1.0.0
