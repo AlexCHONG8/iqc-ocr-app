@@ -1620,6 +1620,34 @@ def extract_iqc_data_from_markdown(markdown_text: str) -> Optional[Dict[str, Any
             if isinstance(dim, dict):
                 parsing_stats['measurements_found'] += len(dim.get('measurements', []))
 
+        # VALIDATION: Check if dimensions have sufficient measurements for SPC
+        MIN_RECOMMENDED_MEASUREMENTS = 25  # Standard SPC minimum
+        insufficient_dimensions = []
+        for i, dim in enumerate(dimensions):
+            if isinstance(dim, dict):
+                measurements = dim.get('measurements', [])
+                if len(measurements) < MIN_RECOMMENDED_MEASUREMENTS:
+                    insufficient_dimensions.append({
+                        'index': i,
+                        'position': dim.get('position', f'Dimension {i+1}'),
+                        'count': len(measurements)
+                    })
+
+        # Show warning if data is insufficient
+        if insufficient_dimensions:
+            warning_msg = f"⚠️ **Insufficient Data for SPC Analysis**\n\n"
+            warning_msg += f"The following dimension(s) have fewer than {MIN_RECOMMENDED_MEASUREMENTS} measurements (recommended for accurate statistical analysis):\n\n"
+            for dim_info in insufficient_dimensions:
+                warning_msg += f"- **{dim_info['position']}**: Only {dim_info['count']} measurements\n"
+            warning_msg += f"\n**Impact:** Process capability indices (Cp, Cpk, Pp, Ppk) may not be statistically reliable.\n\n"
+            warning_msg += "**Recommendations:**\n"
+            warning_msg += "1. Check if the OCR captured all measurement rows\n"
+            warning_msg += "2. Ensure your PDF has complete measurement data (typically 25-50 measurements per dimension)\n"
+            warning_msg += "3. Try re-uploading the PDF or enable Debug Mode to see what was extracted"
+
+            st.warning(warning_msg)
+            logging.warning(f"Insufficient measurements in {len(insufficient_dimensions)} dimension(s): {insufficient_dimensions}")
+
         if debug_mode:
             st.markdown("---")
             st.markdown("### 🔍 OCR Parsing Debug Info")
