@@ -4,109 +4,202 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>思纳福医疗 - IQC 统计分析报告 (ISO 13485)</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
         body {
             font-family: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
             margin: 0; padding: 20px;
-            background: #f1f5f9; color: #1e293b;
+            background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 50%, #f0fdf4 100%);
+            color: #1e293b;
         }
         .report-wrapper {
-            max-width: 1200px; margin: 0 auto;
-            background: #ffffff; border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;
+            max-width: 1400px; margin: 0 auto;
+            background: #ffffff; border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-            padding: 24px 32px; display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
+            padding: 32px 40px; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 12px rgba(15,118,110,0.2);
         }
-        .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 600; }
-        .header small { color: rgba(255,255,255,0.8); font-size: 12px; }
+        .header h1 { color: #fff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+        .header small { color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 400; }
         .header-meta { text-align: right; color: #fff; }
         .iso-badge {
-            background: rgba(255,255,255,0.2); padding: 4px 10px;
-            border-radius: 4px; font-size: 10px; text-transform: uppercase;
-            margin-top: 8px; display: inline-block;
+            background: rgba(255,255,255,0.25); padding: 8px 16px;
+            border-radius: 8px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            margin-top: 10px; display: inline-block; backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.3);
         }
         .meta-section {
-            padding: 16px 32px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1;
+            padding: 28px 40px; background: linear-gradient(to bottom, #f0fdfa, #ecfdf5);
+            border-bottom: 1px solid #d1fae5;
         }
-        .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .meta-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
         .meta-item {
-            background: #fff; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1;
+            background: #fff; padding: 18px; border-radius: 10px;
+            border: 1px solid #d1fae5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .meta-item b { display: block; color: #64748b; font-size: 10px; text-transform: uppercase; }
-        .meta-item span { font-size: 14px; font-weight: 500; }
-        .meta-item.highlight { background: #16a34a; border-color: #16a34a; }
+        .meta-item:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+            border-color: #14b8a6;
+        }
+        .meta-item b {
+            display: block; color: #64748b; font-size: 11px;
+            text-transform: uppercase; font-weight: 600;
+            letter-spacing: 0.05em; margin-bottom: 6px;
+        }
+        .meta-item span { font-size: 16px; font-weight: 700; color: #1e293b; }
+        .meta-item.highlight {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            border-color: #16a34a;
+            box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+        }
         .meta-item.highlight b, .meta-item.highlight span { color: #fff; }
-        .main-content { padding: 24px 32px; }
+        .main-content { padding: 32px 40px; }
         .dimension-card {
-            background: #fff; border: 1px solid #e2e8f0; margin-bottom: 24px;
-            border-radius: 8px; overflow: hidden;
+            background: #fff; border: 1px solid #e2e8f0;
+            margin-bottom: 28px; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            transition: box-shadow 0.3s ease;
         }
+        .dimension-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
         .card-header {
-            padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+            padding: 20px 24px; background: linear-gradient(to right, #f0fdfa, #ecfdf5);
+            border-bottom: 1px solid #d1fae5;
             display: flex; justify-content: space-between; align-items: center;
         }
-        .card-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .card-header h3 {
+            margin: 0; font-size: 18px; font-weight: 700; color: #0f766e;
+        }
         .spec-badge {
-            font-size: 12px; color: #64748b; background: #fff;
-            padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 8px;
+            font-size: 13px; color: #64748b; background: #fff;
+            padding: 6px 14px; border-radius: 8px; border: 1px solid #d1fae5;
+            margin-left: 12px; font-weight: 600;
         }
         .verdict-badge {
-            padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600;
+            padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
         }
-        .verdict-pass { background: #dcfce7; color: #16a34a; }
-        .verdict-warning { background: #ffedd5; color: #ea580c; }
-        .verdict-ng { background: #fee2e2; color: #dc2626; }
+        .verdict-pass { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+        .verdict-warning { background: #ffedd5; color: #ea580c; border: 1px solid #fdba74; }
+        .verdict-ng { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
         .chart-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 20px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 24px;
         }
         .chart-card {
-            background: #fff; border: 1px solid #e2e8f0; padding: 12px;
-            border-radius: 6px; height: 280px;
+            background: #fff; border: 1px solid #e2e8f0; padding: 16px;
+            border-radius: 10px; height: 300px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
-        .chart-card.wide { grid-column: span 2; }
+        .chart-card.wide { grid-column: span 2; height: 340px; }
         .chart-title {
-            font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;
+            font-size: 13px; font-weight: 700; color: #475569;
+            margin-bottom: 12px; text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .chart-card canvas { width: 100% !important; height: 220px !important; max-width: 100%; max-height: 220px; }
-        .chart-card.wide canvas { height: 220px !important; max-height: 220px; }
+        .chart-card canvas {
+            width: 100% !important; height: 240px !important;
+            max-width: 100%; max-height: 240px;
+        }
+        .chart-card.wide canvas { height: 280px !important; max-height: 280px; }
         .capability-summary {
-            grid-column: span 3; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-            background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 6px;
+            grid-column: span 3; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+            background: linear-gradient(135deg, #f0fdf9, #dcfce7);
+            border: 1px solid #bbf7d0; padding: 20px; border-radius: 10px;
+            box-shadow: inset 0 2px 8px rgba(22,163,74,0.05);
         }
-        .stat-box { text-align: center; padding: 10px; background: #fff; border-radius: 4px; }
-        .stat-box small { display: block; color: #64748b; font-size: 10px; }
-        .stat-box span { font-size: 16px; font-weight: 700; color: #2563eb; font-family: 'Monaco', monospace; }
+        .stat-box {
+            text-align: center; padding: 14px 10px; background: #fff;
+            border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            transition: all 0.2s ease;
+        }
+        .stat-box:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .stat-box small { display: block; color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .stat-box span { font-size: 18px; font-weight: 800; color: #0f766e; font-family: 'Monaco', 'Consolas', monospace; }
         .stat-box.excellent span { color: #16a34a; }
+        .stat-box.good span { color: #22c55e; }
+        .stat-box.warning span { color: #ea580c; }
         .stat-box.poor span { color: #dc2626; }
         .ai-suggestion {
-            grid-column: span 3; display: flex; gap: 12px; padding: 14px 16px;
-            background: #fefce8; border: 1px solid #fde047; border-radius: 6px;
+            grid-column: span 3; display: flex; gap: 14px; padding: 18px 20px;
+            background: linear-gradient(to right, #fefce8, #fef3c7);
+            border: 1px solid #fde047; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(253,224,71,0.1);
         }
-        .ai-suggestion .icon { font-size: 20px; }
-        .ai-suggestion .content strong { font-size: 14px; color: #854d0e; }
-        .ai-suggestion .content p { font-size: 13px; color: #713f12; margin: 4px 0 0 0; }
-        .raw-data-section { margin-top: 24px; }
-        .raw-data-section h3 { margin: 0 0 12px 0; font-size: 16px; }
-        .table-container { overflow-x: auto; border-radius: 6px; border: 1px solid #e2e8f0; }
-        table.raw-data { width: 100%; border-collapse: collapse; font-size: 12px; }
-        table.raw-data thead { background: #1e3a5f; color: #fff; }
-        table.raw-data th { padding: 10px; text-align: center; font-size: 10px; }
-        table.raw-data td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: 'Monaco', monospace; }
-        .out-of-spec { background: #fee2e2 !important; color: #dc2626; font-weight: 700; }
+        .ai-suggestion .icon { font-size: 24px; }
+        .ai-suggestion .content strong { font-size: 15px; color: #854d0e; }
+        .ai-suggestion .content p { font-size: 13px; color: #713f12; margin: 6px 0 0 0; line-height: 1.6; }
+        .raw-data-section { margin-top: 28px; }
+        .raw-data-section h3 { margin: 0 0 16px 0; font-size: 18px; font-weight: 700; color: #0f766e; }
+        .raw-data-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .raw-data-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: #0f766e; }
+        .export-btn {
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+            color: #fff; border: none; padding: 10px 18px; border-radius: 8px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(15,118,110,0.3);
+        }
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(15,118,110,0.4);
+        }
+        .export-btn:active { transform: translateY(0); }
+        .export-btn svg { width: 18px; height: 18px; }
+        .table-container {
+            overflow-x: auto; border-radius: 10px;
+            border: 1px solid #d1fae5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        table.raw-data {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+        }
+        table.raw-data thead {
+            background: linear-gradient(135deg, #0f766e, #0d9488);
+            color: #fff;
+        }
+        table.raw-data th {
+            padding: 14px 16px; text-align: center;
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        table.raw-data td {
+            padding: 12px 16px; border-bottom: 1px solid #e2e8f0;
+            text-align: center; font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px; font-weight: 500;
+        }
+        table.raw-data tr:hover { background: #f0fdfa; }
+        .out-of-spec {
+            background: #fee2e2 !important; color: #dc2626;
+            font-weight: 700; text-decoration: underline;
+        }
         .footer {
-            margin-top: 24px; padding: 20px 32px; background: #f1f5f9;
-            border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 11px; color: #64748b;
+            margin-top: 28px; padding: 24px 40px; background: linear-gradient(to right, #f0fdfa, #ecfdf5);
+            border-top: 1px solid #d1fae5;
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: #64748b;
         }
-        .footer .signature-section { display: flex; gap: 24px; }
-        .signature-line { width: 120px; height: 1px; background: #cbd5e1; margin-top: 4px; }
-        @media print { body { padding: 0; } .report-wrapper { box-shadow: none; } .chart-card { break-inside: avoid; } }
-        @media (max-width: 900px) {
-            .chart-grid { grid-template-columns: 1fr; } .chart-card.wide { grid-column: span 1; }
-            .capability-summary { grid-column: span 1; grid-template-columns: repeat(2, 1fr); } .ai-suggestion { grid-column: span 1; }
+        .footer .signature-section { display: flex; gap: 32px; }
+        .signature-line {
+            width: 140px; height: 2px; background: #cbd5e1; margin-top: 6px;
+        }
+        @media print {
+            body { padding: 0; }
+            .report-wrapper { box-shadow: none; }
+            .chart-card { break-inside: avoid; }
+            .export-btn { display: none; }
+        }
+        @media (max-width: 1024px) {
+            .meta-grid { grid-template-columns: repeat(3, 1fr); }
+            .chart-grid { grid-template-columns: 1fr; }
+            .chart-card.wide { grid-column: span 1; }
+            .capability-summary { grid-column: span 1; grid-template-columns: repeat(2, 1fr); }
+            .ai-suggestion { grid-column: span 1; }
         }
     </style>
 </head>
@@ -114,7 +207,7 @@
     <div class="report-wrapper">
         <div class="header">
             <div><h1>思纳福医疗进货检验数据分析</h1><small>SiNaFu Medical IQC Statistical Analysis Report</small></div>
-            <div class="header-meta"><div>SNP-QR-8.2.6-STATS</div><div class="iso-badge">ISO 13485 Compliant</div></div>
+            <div class="header-meta"><div style="font-weight: 700; font-size: 14px;">SNP-QR-8.2.6-STATS</div><div class="iso-badge">✓ ISO 13485 Compliant</div></div>
         </div>
         <div class="meta-section">
             <div class="meta-grid">
@@ -128,7 +221,17 @@
         </div>
         <div class="main-content"><div id="stats-content"></div>
             <div class="raw-data-section">
-                <h3>原始测量数据明细 Raw Data</h3>
+                <div class="raw-data-header">
+                    <h3>原始测量数据明细 Raw Data</h3>
+                    <button class="export-btn" onclick="exportRawDataCSV()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        导出CSV Export CSV
+                    </button>
+                </div>
                 <div class="table-container"><div id="raw-data-content"></div></div>
             </div>
         </div>
@@ -138,7 +241,7 @@
                 <div><div>审核 Checked</div><div class="signature-line"></div></div>
                 <div><div>批准 Approved</div><div class="signature-line"></div></div>
             </div>
-            <div>Generated: <span id="gen-date"></span></div>
+            <div style="margin-top: 8px;">Generated: <span id="gen-date"></span></div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -153,7 +256,14 @@
         let hasRendered = false; const charts = [];
         function destroyCharts() { charts.forEach(c => c && c.destroy && c.destroy()); charts.length = 0; }
         function renderReport() {
-            if (hasRendered) return; hasRendered = true;
+            console.log('🚀 renderReport() called');
+            if (hasRendered) {
+                console.log('⚠️ Already rendered, skipping');
+                return;
+            }
+            hasRendered = true;
+            console.log('📊 iqcData:', iqcData);
+            console.log('📊 Dimensions count:', iqcData.dimensions ? iqcData.dimensions.length : 'undefined');
             document.getElementById('mat-name').textContent = iqcData.meta.material_name;
             document.getElementById('mat-code').textContent = iqcData.meta.material_code;
             document.getElementById('mat-date').textContent = iqcData.meta.date;
@@ -161,34 +271,574 @@
             document.getElementById('mat-supp').textContent = iqcData.meta.supplier;
             const lowCpk = iqcData.dimensions.some(d => d.cpk < 1.0);
             const verdictEl = document.getElementById('final-verdict');
-            verdictEl.textContent = lowCpk ? '合格-需改进' : '合格 (PASS)';
+            verdictEl.textContent = lowCpk ? '合格-需改进 Needs Improvement' : '合格 (PASS)';
             verdictEl.className = 'verdict-badge ' + (lowCpk ? 'verdict-warning' : 'verdict-pass');
             const container = document.getElementById('stats-content');
             iqcData.dimensions.forEach((dim, idx) => {
-                const cpkClass = dim.cpk >= 1.33 ? 'excellent' : 'poor';
-                container.innerHTML += `<div class="dimension-card"><div class="card-header"><h3>📊 ${dim.name} <span class="spec-badge">${dim.spec}</span></h3><span class="verdict-badge ${dim.cpk < 1.0 ? 'verdict-warning' : 'verdict-pass'}">${dim.conclusion}</span></div><div class="chart-grid"><div class="chart-card wide"><div class="chart-title">🎯 过程能力图 Capability</div><canvas id="cap-${idx}"></canvas></div><div class="chart-card"><div class="chart-title">📈 直方图 Histogram</div><canvas id="hist-${idx}"></canvas></div><div class="chart-card"><div class="chart-title">📉 Xbar图</div><canvas id="xbar-${idx}"></canvas></div><div class="chart-card"><div class="chart-title">📊 R图</div><canvas id="rchart-${idx}"></canvas></div><div class="chart-card"><div class="chart-title">🔮 概率图</div><canvas id="prob-${idx}"></canvas></div><div class="capability-summary"><div class="stat-box ${cpkClass}"><small>Cp</small><span>${dim.cp.toFixed(3)}</span></div><div class="stat-box ${cpkClass}"><small>Cpk</small><span>${dim.cpk.toFixed(3)}</span></div><div class="stat-box ${cpkClass}"><small>Pp/Ppk</small><span>${dim.pp.toFixed(2)}/${dim.ppk.toFixed(2)}</span></div><div class="stat-box"><small>6σ</small><span>${dim.six_sigma_spread.toFixed(4)}</span></div><div class="stat-box"><small>Mean</small><span>${dim.mean.toFixed(4)}</span></div><div class="stat-box"><small>Std Dev</small><span>${dim.std_dev_overall.toFixed(5)}</span></div><div class="stat-box"><small>Min</small><span>${dim.min_val.toFixed(3)}</span></div><div class="stat-box"><small>Max</small><span>${dim.max_val.toFixed(3)}</span></div></div><div class="ai-suggestion"><span class="icon">💡</span><div class="content"><strong>AI 质量建议</strong><p>${dim.suggestion}</p></div></div></div></div>`;
+                const cpkValue = dim.cpk;
+                let cpkClass = 'excellent';
+                if (cpkValue < 1.0) cpkClass = 'poor';
+                else if (cpkValue < 1.33) cpkClass = 'warning';
+                else cpkClass = 'excellent';
+
+                container.innerHTML += `
+                <div class="dimension-card">
+                    <div class="card-header">
+                        <h3>📊 ${dim.name} <span class="spec-badge">${dim.spec}</span></h3>
+                        <span class="verdict-badge ${dim.cpk < 1.0 ? 'verdict-warning' : 'verdict-pass'}">${dim.conclusion}</span>
+                    </div>
+                    <div class="chart-grid">
+                        <div class="chart-card" style="grid-column: span 3; height: 380px;">
+                            <div class="chart-title">📈 过程能力分析图 Process Capability Analysis</div>
+                            <canvas id="capability-analysis-${idx}"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">📊 直方图 Histogram</div>
+                            <canvas id="hist-${idx}"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">📉 Xbar图</div>
+                            <canvas id="xbar-${idx}"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">📊 R图</div>
+                            <canvas id="rchart-${idx}"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">🎯 过程能力 Capability</div>
+                            <canvas id="cap-${idx}"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">🔮 概率图</div>
+                            <canvas id="prob-${idx}"></canvas>
+                        </div>
+                        <div class="capability-summary">
+                            <div class="stat-box ${cpkClass}"><small>Cp</small><span>${dim.cp.toFixed(3)}</span></div>
+                            <div class="stat-box ${cpkClass}"><small>Cpk</small><span>${dim.cpk.toFixed(3)}</span></div>
+                            <div class="stat-box ${cpkClass}"><small>Pp</small><span>${dim.pp.toFixed(2)}</span></div>
+                            <div class="stat-box ${cpkClass}"><small>Ppk</small><span>${dim.ppk.toFixed(2)}</span></div>
+                            <div class="stat-box"><small>Mean</small><span>${dim.mean.toFixed(4)}</span></div>
+                            <div class="stat-box"><small>Std Dev</small><span>${dim.std_dev_overall.toFixed(5)}</span></div>
+                            <div class="stat-box"><small>Min</small><span>${dim.min_val.toFixed(3)}</span></div>
+                            <div class="stat-box"><small>Max</small><span>${dim.max_val.toFixed(3)}</span></div>
+                            <div class="stat-box"><small>6σ Spread</small><span>${dim.six_sigma_spread.toFixed(4)}</span></div>
+                            <div class="stat-box"><small>σ_within</small><span>${dim.std_dev_within.toFixed(5)}</span></div>
+                            <div class="stat-box"><small>σ_overall</small><span>${dim.std_dev_overall.toFixed(5)}</span></div>
+                            <div class="stat-box"><small>Sample Size</small><span>${dim.measurements.length}</span></div>
+                        </div>
+                        <div class="ai-suggestion">
+                            <span class="icon">💡</span>
+                            <div class="content">
+                                <strong>AI 质量建议 AI Quality Suggestion</strong>
+                                <p>${dim.suggestion}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
             });
             requestAnimationFrame(() => {
                 iqcData.dimensions.forEach((dim, idx) => {
-                    const commonOptions = { responsive: false, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#fff', padding: 8, cornerRadius: 4, displayColors: false } }, scales: { x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } }, y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } } } };
-                    const sigma3 = 3 * dim.std_dev_overall; const pLower = dim.mean - sigma3; const pUpper = dim.mean + sigma3;
-                    const minX = Math.min(dim.lsl, pLower) - (dim.usl - dim.lsl) * 0.1; const maxX = Math.max(dim.usl, pUpper) + (dim.usl - dim.lsl) * 0.1;
+                    const commonOptions = {
+                        responsive: false, maintainAspectRatio: false, animation: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#fff',
+                                padding: 10, cornerRadius: 6, displayColors: false,
+                                titleFont: { size: 13, weight: '600' },
+                                bodyFont: { size: 12 }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+                            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
+                        }
+                    };
+
+                    const sigma3 = 3 * dim.std_dev_overall;
+                    const pLower = dim.mean - sigma3;
+                    const pUpper = dim.mean + sigma3;
+                    const minX = Math.min(dim.lsl, pLower) - (dim.usl - dim.lsl) * 0.15;
+                    const maxX = Math.max(dim.usl, pUpper) + (dim.usl - dim.lsl) * 0.15;
                     const capColor = dim.cpk < 1.0 ? '#dc2626' : (dim.cpk < 1.33 ? '#ea580c' : '#16a34a');
-                    charts.push(new Chart(document.getElementById(`cap-${idx}`), { type: 'bar', data: { labels: ['Process 6σ', 'Spec Tolerance'], datasets: [{ data: [[pLower, pUpper], [dim.lsl, dim.usl]], backgroundColor: [dim.cpk < 1.0 ? 'rgba(220,38,38,0.6)' : 'rgba(22,163,74,0.6)', 'rgba(22,163,74,0.3)'], borderColor: [capColor, '#16a34a'], borderWidth: 2, barPercentage: 0.5 }] }, options: { ...commonOptions, indexAxis: 'y', scales: { x: { min: minX, max: maxX }, y: { grid: { display: false } } }, plugins: { ...commonOptions.plugins, annotation: { annotations: { meanLine: { type: 'line', xMin: dim.mean, xMax: dim.mean, borderColor: '#2563eb', borderWidth: 2 }, lslLine: { type: 'line', xMin: dim.lsl, xMax: dim.lsl, borderColor: '#dc2626', borderWidth: 1 }, uslLine: { type: 'line', xMin: dim.usl, xMax: dim.usl, borderColor: '#dc2626', borderWidth: 1 } } } } } }));
-                    charts.push(new Chart(document.getElementById(`xbar-${idx}`), { type: 'line', data: { labels: dim.subgroups.map((_, i) => i + 1), datasets: [{ data: dim.subgroups.map(g => g.mean), borderColor: '#2563eb', borderWidth: 2, pointRadius: 2 }, { data: Array(dim.subgroups.length).fill(dim.ucl_x), borderColor: '#dc2626', borderDash: [4, 2], pointRadius: 0 }, { data: Array(dim.subgroups.length).fill(dim.lcl_x), borderColor: '#dc2626', borderDash: [4, 2], pointRadius: 0 }, { data: Array(dim.subgroups.length).fill(dim.x_bar_bar), borderColor: '#16a34a', pointRadius: 0 }] }, options: { ...commonOptions, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } } } }));
-                    charts.push(new Chart(document.getElementById(`rchart-${idx}`), { type: 'line', data: { labels: dim.subgroups.map((_, i) => i + 1), datasets: [{ data: dim.subgroups.map(g => g.range), borderColor: '#7c3aed', borderWidth: 2, pointRadius: 2 }, { data: Array(dim.subgroups.length).fill(dim.ucl_r), borderColor: '#dc2626', borderDash: [4, 2], pointRadius: 0 }, { data: Array(dim.subgroups.length).fill(dim.r_bar), borderColor: '#16a34a', pointRadius: 0 }] }, options: { ...commonOptions, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } } } }));
-                    const bins = 10; const min = Math.min(dim.min_val, dim.lsl) - (dim.usl - dim.lsl) * 0.05; const max = Math.max(dim.max_val, dim.usl) + (dim.usl - dim.lsl) * 0.05; const step = (max - min) / bins; const histData = new Array(bins).fill(0);
-                    dim.measurements.forEach(v => { const i = Math.floor((v - min) / step); if (i >= 0 && i < bins) histData[i]++; });
-                    charts.push(new Chart(document.getElementById(`hist-${idx}`), { type: 'bar', data: { labels: histData.map((_, i) => (min + i * step).toFixed(2)), datasets: [{ data: histData, backgroundColor: 'rgba(37,99,235,0.4)', borderColor: '#2563eb', borderWidth: 1 }] }, options: { ...commonOptions, scales: { x: { display: false }, y: { display: false } } } }));
-                    const sorted = [...dim.measurements].sort((a,b) => a-b); const n = sorted.length; const probData = sorted.map((v, i) => { const p = (i + 0.5) / n; const z = p <= 0 ? -3.5 : p >= 1 ? 3.5 : Math.sqrt(2) * ((p > 0.5 ? -1 : 1) * Math.sqrt(-2 * Math.log(Math.min(p, 1-p)))); return { x: z, y: v }; });
-                    charts.push(new Chart(document.getElementById(`prob-${idx}`), { type: 'scatter', data: { datasets: [{ data: probData, backgroundColor: 'rgba(124,58,237,0.7)', pointRadius: 3 }, { type: 'line', data: [{ x: probData[0].x, y: dim.mean + probData[0].x * dim.std_dev_overall }, { x: probData[n-1].x, y: dim.mean + probData[n-1].x * dim.std_dev_overall }], borderColor: '#dc2626', borderWidth: 1, borderDash: [4, 2], pointRadius: 0 }] }, options: { ...commonOptions, scales: { x: { title: { display: true, text: 'Z-Score', font: {size:10} }, grid: {color:'#f1f5f9'} }, y: { title: { display: true, text: 'Value', font: {size:10} }, grid: {color:'#f1f5f9'} } } } }));
+
+                    // 1. Professional Process Capability Analysis Chart using Chart.js
+                    const capabilityCanvas = document.getElementById(`capability-analysis-${idx}`);
+                    if (capabilityCanvas) {
+                        // Generate normal distribution curve data
+                        const curvePoints = 200;
+                        const curveData = [];
+                        const labels = [];
+                        const step = (maxX - minX) / curvePoints;
+
+                        for (let i = 0; i <= curvePoints; i++) {
+                            const x = minX + i * step;
+                            const z = (x - dim.mean) / dim.std_dev_overall;
+                            const pdf = (1 / (dim.std_dev_overall * Math.sqrt(2 * Math.PI))) *
+                                       Math.exp(-0.5 * z * z);
+                            curveData.push({ x: x, y: pdf });
+                            labels.push(x.toFixed(3));
+                        }
+
+                        // Create chart
+                        const ctx = capabilityCanvas.getContext('2d');
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Normal Distribution',
+                                    data: curveData,
+                                    borderColor: '#0f766e',
+                                    backgroundColor: (context) => {
+                                        const chart = context.chart;
+                                        const { ctx, chartArea } = chart;
+                                        if (!chartArea) return null;
+
+                                        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                                        gradient.addColorStop(0, 'rgba(15,118,110,0.1)');
+                                        gradient.addColorStop(0.5, 'rgba(15,118,110,0.3)');
+                                        gradient.addColorStop(1, 'rgba(15,118,110,0.6)');
+                                        return gradient;
+                                    },
+                                    borderWidth: 3,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 6,
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: {
+                                    intersect: false,
+                                    mode: 'index',
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: true,
+                                        position: 'top',
+                                        labels: {
+                                            font: { size: 13, weight: '600', family: 'Inter' },
+                                            color: '#1e293b',
+                                            usePointStyle: true,
+                                            padding: 15
+                                        }
+                                    },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                                        titleColor: '#fff',
+                                        bodyColor: '#fff',
+                                        titleFont: { size: 13, weight: '700' },
+                                        bodyFont: { size: 12 },
+                                        padding: 12,
+                                        cornerRadius: 8,
+                                        displayColors: true,
+                                        callbacks: {
+                                            title: (context) => {
+                                                return `Value: ${parseFloat(context[0].label).toFixed(3)}`;
+                                            },
+                                            label: (context) => {
+                                                return `Density: ${context.raw.y.toFixed(6)}`;
+                                            }
+                                        }
+                                    },
+                                    annotation: {
+                                        annotations: {
+                                            lslLine: {
+                                                type: 'line',
+                                                xMin: dim.lsl,
+                                                xMax: dim.lsl,
+                                                borderColor: '#dc2626',
+                                                borderWidth: 2,
+                                                borderDash: [8, 4],
+                                                label: {
+                                                    display: true,
+                                                    content: `LSL: ${dim.lsl.toFixed(3)}`,
+                                                    position: 'start',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                                    color: '#fff',
+                                                    font: { size: 11, weight: '600' },
+                                                    padding: 6,
+                                                    borderRadius: 4
+                                                }
+                                            },
+                                            uslLine: {
+                                                type: 'line',
+                                                xMin: dim.usl,
+                                                xMax: dim.usl,
+                                                borderColor: '#dc2626',
+                                                borderWidth: 2,
+                                                borderDash: [8, 4],
+                                                label: {
+                                                    display: true,
+                                                    content: `USL: ${dim.usl.toFixed(3)}`,
+                                                    position: 'end',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                                    color: '#fff',
+                                                    font: { size: 11, weight: '600' },
+                                                    padding: 6,
+                                                    borderRadius: 4
+                                                }
+                                            },
+                                            meanLine: {
+                                                type: 'line',
+                                                xMin: dim.mean,
+                                                xMax: dim.mean,
+                                                borderColor: '#2563eb',
+                                                borderWidth: 2,
+                                                borderDash: [4, 4],
+                                                label: {
+                                                    display: true,
+                                                    content: `Mean: ${dim.mean.toFixed(3)}`,
+                                                    position: 'center',
+                                                    backgroundColor: 'rgba(37, 99, 235, 0.9)',
+                                                    color: '#fff',
+                                                    font: { size: 11, weight: '600' },
+                                                    padding: 6,
+                                                    borderRadius: 4
+                                                }
+                                            },
+                                            statsBox: {
+                                                type: 'box',
+                                                xMin: Math.max(dim.usl, pUpper) - (maxX - minX) * 0.22,
+                                                xMax: Math.max(dim.usl, pUpper) - (maxX - minX) * 0.02,
+                                                yMin: 0.85,
+                                                yMax: 0.99,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                borderColor: '#0f766e',
+                                                borderWidth: 1,
+                                                borderRadius: 8
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        type: 'linear',
+                                        display: true,
+                                        title: {
+                                            display: true,
+                                            text: 'Measured Value',
+                                            font: { size: 12, weight: '700', family: 'Inter' },
+                                            color: '#475569'
+                                        },
+                                        grid: {
+                                            color: '#f1f5f9',
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            font: { size: 11, family: 'Inter' },
+                                            color: '#64748b',
+                                            callback: (value) => value.toFixed(2)
+                                        }
+                                    },
+                                    y: {
+                                        display: true,
+                                        title: {
+                                            display: true,
+                                            text: 'Probability Density',
+                                            font: { size: 12, weight: '700', family: 'Inter' },
+                                            color: '#475569'
+                                        },
+                                        grid: {
+                                            color: '#f1f5f9',
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            font: { size: 11, family: 'Inter' },
+                                            color: '#64748b'
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: [{
+                                id: 'statsOverlay',
+                                afterDraw: (chart) => {
+                                    const ctx = chart.ctx;
+                                    const { chartArea } = chart;
+
+                                    if (!chartArea) return;
+
+                                    // Calculate stats box position
+                                    const boxX = chartArea.right - 180;
+                                    const boxY = chartArea.top + 10;
+                                    const boxWidth = 170;
+                                    const boxHeight = 85;
+
+                                    // Draw stats box background
+                                    ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+                                    ctx.strokeStyle = '#0f766e';
+                                    ctx.lineWidth = 1;
+                                    ctx.beginPath();
+                                    ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+                                    ctx.fill();
+                                    ctx.stroke();
+
+                                    // Draw stats text
+                                    const withinSpec = dim.measurements.filter(v => v >= dim.lsl && v <= dim.usl).length;
+                                    const percentWithin = (withinSpec / dim.measurements.length * 100).toFixed(1);
+                                    const percentColor = percentWithin >= 99 ? '#16a34a' : (percentWithin >= 95 ? '#ea580c' : '#dc2626');
+
+                                    ctx.font = 'bold 11px Inter, sans-serif';
+                                    ctx.fillStyle = '#1e293b';
+                                    ctx.textAlign = 'left';
+
+                                    let statY = boxY + 20;
+                                    const leftPad = boxX + 15;
+                                    ctx.fillText(`Cp: ${dim.cp.toFixed(3)}`, leftPad, statY);
+                                    statY += 18;
+                                    ctx.fillText(`Cpk: ${dim.cpk.toFixed(3)}`, leftPad, statY);
+                                    statY += 18;
+                                    ctx.fillText(`Pp: ${dim.pp.toFixed(3)}`, leftPad, statY);
+                                    statY += 18;
+                                    ctx.fillText(`Ppk: ${dim.ppk.toFixed(3)}`, leftPad, statY);
+
+                                    // Draw percentage
+                                    ctx.font = 'bold 12px Inter, sans-serif';
+                                    ctx.fillStyle = percentColor;
+                                    ctx.fillText(`${percentWithin}% within`, leftPad, statY + 12);
+                                }
+                            }]
+                        });
+                    }
+
+                    // 2. Original capability chart
+                    charts.push(new Chart(document.getElementById(`cap-${idx}`), {
+                        type: 'bar',
+                        data: {
+                            labels: ['Process 6σ', 'Spec Tolerance'],
+                            datasets: [{
+                                data: [[pLower, pUpper], [dim.lsl, dim.usl]],
+                                backgroundColor: [dim.cpk < 1.0 ? 'rgba(220,38,38,0.6)' : 'rgba(22,163,74,0.6)', 'rgba(22,163,74,0.3)'],
+                                borderColor: [capColor, '#16a34a'],
+                                borderWidth: 2,
+                                barPercentage: 0.5,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            ...commonOptions,
+                            indexAxis: 'y',
+                            scales: {
+                                x: { min: minX, max: maxX },
+                                y: { grid: { display: false } }
+                            },
+                            plugins: {
+                                ...commonOptions.plugins,
+                                annotation: {
+                                    annotations: {
+                                        meanLine: { type: 'line', xMin: dim.mean, xMax: dim.mean, borderColor: '#2563eb', borderWidth: 2 },
+                                        lslLine: { type: 'line', xMin: dim.lsl, xMax: dim.lsl, borderColor: '#dc2626', borderWidth: 1 },
+                                        uslLine: { type: 'line', xMin: dim.usl, xMax: dim.usl, borderColor: '#dc2626', borderWidth: 1 }
+                                    }
+                                }
+                            }
+                        }
+                    }));
+
+                    // 3. Xbar chart
+                    charts.push(new Chart(document.getElementById(`xbar-${idx}`), {
+                        type: 'line',
+                        data: {
+                            labels: dim.subgroups.map((_, i) => i + 1),
+                            datasets: [
+                                { data: dim.subgroups.map(g => g.mean), borderColor: '#2563eb', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#2563eb', pointBorderWidth: 2 },
+                                { data: Array(dim.subgroups.length).fill(dim.ucl_x), borderColor: '#dc2626', borderDash: [6, 3], pointRadius: 0, borderWidth: 1.5 },
+                                { data: Array(dim.subgroups.length).fill(dim.lcl_x), borderColor: '#dc2626', borderDash: [6, 3], pointRadius: 0, borderWidth: 1.5 },
+                                { data: Array(dim.subgroups.length).fill(dim.x_bar_bar), borderColor: '#16a34a', pointRadius: 0, borderWidth: 1.5 }
+                            ]
+                        },
+                        options: {
+                            ...commonOptions,
+                            scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }
+                        }
+                    }));
+
+                    // 4. R chart
+                    charts.push(new Chart(document.getElementById(`rchart-${idx}`), {
+                        type: 'line',
+                        data: {
+                            labels: dim.subgroups.map((_, i) => i + 1),
+                            datasets: [
+                                { data: dim.subgroups.map(g => g.range), borderColor: '#7c3aed', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#7c3aed', pointBorderWidth: 2 },
+                                { data: Array(dim.subgroups.length).fill(dim.ucl_r), borderColor: '#dc2626', borderDash: [6, 3], pointRadius: 0, borderWidth: 1.5 },
+                                { data: Array(dim.subgroups.length).fill(dim.r_bar), borderColor: '#16a34a', pointRadius: 0, borderWidth: 1.5 }
+                            ]
+                        },
+                        options: {
+                            ...commonOptions,
+                            scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }
+                        }
+                    }));
+
+                    // 5. Histogram
+                    const bins = 12;
+                    const min = Math.min(dim.min_val, dim.lsl) - (dim.usl - dim.lsl) * 0.05;
+                    const max = Math.max(dim.max_val, dim.usl) + (dim.usl - dim.lsl) * 0.05;
+                    const step = (max - min) / bins;
+                    const histData = new Array(bins).fill(0);
+                    dim.measurements.forEach(v => {
+                        const i = Math.floor((v - min) / step);
+                        if (i >= 0 && i < bins) histData[i]++;
+                    });
+
+                    // Add LSL and USL annotations to histogram
+                    const histAnnotations = {};
+                    if (dim.lsl > min) {
+                        histAnnotations.lslLine = { type: 'line', xMin: dim.lsl, xMax: dim.lsl, borderColor: '#dc2626', borderWidth: 2, borderDash: [6, 3] };
+                    }
+                    if (dim.usl < max) {
+                        histAnnotations.uslLine = { type: 'line', xMin: dim.usl, xMax: dim.usl, borderColor: '#dc2626', borderWidth: 2, borderDash: [6, 3] };
+                    }
+
+                    charts.push(new Chart(document.getElementById(`hist-${idx}`), {
+                        type: 'bar',
+                        data: {
+                            labels: histData.map((_, i) => (min + i * step).toFixed(2)),
+                            datasets: [{
+                                data: histData,
+                                backgroundColor: 'rgba(37,99,235,0.5)',
+                                borderColor: '#2563eb',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            ...commonOptions,
+                            scales: {
+                                x: { display: true, ticks: { font: { size: 10 } } },
+                                y: { display: true, ticks: { font: { size: 10 } } }
+                            },
+                            plugins: {
+                                ...commonOptions.plugins,
+                                annotation: histAnnotations
+                            }
+                        }
+                    }));
+
+                    // 6. Probability plot
+                    const sorted = [...dim.measurements].sort((a,b) => a-b);
+                    const n = sorted.length;
+                    const probData = sorted.map((v, i) => {
+                        const p = (i + 0.5) / n;
+                        const z = p <= 0 ? -3.5 : p >= 1 ? 3.5 : Math.sqrt(2) * ((p > 0.5 ? -1 : 1) * Math.sqrt(-2 * Math.log(Math.min(p, 1-p))));
+                        return { x: z, y: v };
+                    });
+                    charts.push(new Chart(document.getElementById(`prob-${idx}`), {
+                        type: 'scatter',
+                        data: {
+                            datasets: [
+                                { data: probData, backgroundColor: 'rgba(124,58,237,0.7)', pointRadius: 4 },
+                                { type: 'line', data: [{ x: probData[0].x, y: dim.mean + probData[0].x * dim.std_dev_overall }, { x: probData[n-1].x, y: dim.mean + probData[n-1].x * dim.std_dev_overall }], borderColor: '#dc2626', borderWidth: 1.5, borderDash: [6, 3], pointRadius: 0 }
+                            ]
+                        },
+                        options: {
+                            ...commonOptions,
+                            scales: {
+                                x: { title: { display: true, text: 'Z-Score', font: {size:11, weight:'600'} }, grid: {color:'#f1f5f9'} },
+                                y: { title: { display: true, text: 'Measured Value', font: {size:11, weight:'600'} }, grid: {color:'#f1f5f9'} }
+                            }
+                        }
+                    }));
                 });
             });
-            const rawContainer = document.getElementById('raw-data-content'); let html = '<table class="raw-data"><thead><tr><th>序号 No.</th>';
-            iqcData.dimensions.forEach(d => html += `<th>${d.name}</th>`); html += '</tr></thead><tbody>';
-            for (let i = 0; i < iqcData.dimensions[0].measurements.length; i++) { html += `<tr><td>${i+1}</td>`; iqcData.dimensions.forEach(d => { const val = d.measurements[i]; html += `<td class="${val > d.usl || val < d.lsl ? 'out-of-spec' : ''}">${val.toFixed(3)}</td>`; }); html += '</tr>'; }
-            html += '</tbody></table>'; rawContainer.innerHTML = html;
+
+            // Render raw data table (with comprehensive error handling)
+            try {
+                console.log('🔄 Starting raw data table rendering...');
+                const rawContainer = document.getElementById('raw-data-content');
+                if (!rawContainer) {
+                    console.error('❌ raw-data-content element not found!');
+                    alert('Error: Raw data container not found. Please check browser console for details.');
+                    return;
+                }
+
+                if (!iqcData.dimensions || !Array.isArray(iqcData.dimensions) || iqcData.dimensions.length === 0) {
+                    console.error('❌ No dimensions data found:', iqcData.dimensions);
+                    rawContainer.innerHTML = '<p style="color: red; padding: 20px;">No measurement data available.</p>';
+                    return;
+                }
+
+                console.log('✅ Found', iqcData.dimensions.length, 'dimensions');
+                let html = '<table class="raw-data"><thead><tr><th>序号 No.</th>';
+                iqcData.dimensions.forEach(d => html += `<th>${d.name} [${d.spec}]</th>`);
+                html += '</tr></thead><tbody>';
+
+                const maxRows = Math.max(...iqcData.dimensions.map(d => d.measurements.length));
+                console.log('✅ Max rows:', maxRows);
+
+                for (let i = 0; i < maxRows; i++) {
+                    html += `<tr><td>${i+1}</td>`;
+                    iqcData.dimensions.forEach(d => {
+                        const val = d.measurements[i];
+                        const isOos = val !== undefined && (val > d.usl || val < d.lsl);
+                        html += `<td class="${isOos ? 'out-of-spec' : ''}">${val !== undefined ? val.toFixed(3) : '-'}</td>`;
+                    });
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+                rawContainer.innerHTML = html;
+                console.log('✅ Raw data table rendered successfully with', maxRows, 'rows');
+            } catch (error) {
+                console.error('❌ Error rendering raw data table:', error);
+                const rawContainer = document.getElementById('raw-data-content');
+                if (rawContainer) {
+                    rawContainer.innerHTML = `<p style="color: red; padding: 20px;">Error rendering table: ${error.message}</p>`;
+                }
+            }
         }
+
+        function exportRawDataCSV() {
+            if (!iqcData.dimensions || iqcData.dimensions.length === 0) {
+                alert('No data available for export');
+                return;
+            }
+
+            // Build CSV header
+            let csv = '序号 No.,';
+            iqcData.dimensions.forEach(dim => {
+                csv += `${dim.name} [${dim.spec}],`;
+            });
+            csv = csv.slice(0, -1) + '\n';
+
+            // Add measurement rows
+            const maxRows = Math.max(...iqcData.dimensions.map(d => d.measurements.length));
+            for (let i = 0; i < maxRows; i++) {
+                csv += `${i + 1},`;
+                iqcData.dimensions.forEach(dim => {
+                    const val = dim.measurements[i] !== undefined ? dim.measurements[i] : '';
+                    if (val !== '' && (val > dim.usl || val < dim.lsl)) {
+                        csv += `${val.toFixed(3)}*,`;
+                    } else {
+                        csv += val !== '' ? `${val.toFixed(3)},` : ',';
+                    }
+                });
+                csv = csv.slice(0, -1) + '\n';
+            }
+
+            // Add specification summary row
+            csv += '\nSpecification Limits,';
+            iqcData.dimensions.forEach(dim => {
+                csv += `LSL:${dim.lsl.toFixed(3)} USL:${dim.usl.toFixed(3)},`;
+            });
+            csv = csv.slice(0, -1) + '\n';
+
+            // Create and download file
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const timestamp = new Date().toISOString().slice(0, 10);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `IQC_RawData_${iqcData.meta.material_name || 'data'}_${timestamp}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
         window.addEventListener('load', renderReport);
         window.addEventListener('resize', () => {});
     </script>

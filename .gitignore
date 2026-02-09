@@ -63,3 +63,6 @@ screenshots/
 !.gitignore
 !Procfile
 !packages.txt
+.omc/
+CLAUDE_OLD.md
+kimi_setup.md

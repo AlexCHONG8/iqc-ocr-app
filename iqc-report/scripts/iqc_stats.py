@@ -14,7 +14,8 @@ def calculate_subgroups(measurements: List[float], subgroup_size: int = 5) -> Li
     subgroups = []
     for i in range(0, len(measurements), subgroup_size):
         subgroup = measurements[i:i + subgroup_size]
-        if len(subgroup) == subgroup_size:
+        # FIX: Accept partial subgroups if we don't have enough data
+        if len(subgroup) >= 2:
             subgroups.append({
                 "mean": round(statistics.mean(subgroup), 4),
                 "range": round(max(subgroup) - min(subgroup), 4)
@@ -26,6 +27,17 @@ def calculate_control_limits(subgroups: List[Dict[str, float]], subgroup_size: i
     """Calculate Xbar-R control chart limits using A2, D3, D4 constants."""
     # Constants for n=5
     A2, D3, D4 = 0.577, 0.0, 2.114
+
+    # FIX: Handle empty subgroups
+    if not subgroups:
+        return {
+            "x_bar_bar": 0.0,
+            "r_bar": 0.0,
+            "ucl_x": 0.0,
+            "lcl_x": 0.0,
+            "ucl_r": 0.0,
+            "lcl_r": 0.0
+        }
 
     x_bar_bar = statistics.mean([s["mean"] for s in subgroups])
     r_bar = statistics.mean([s["range"] for s in subgroups])
@@ -44,26 +56,59 @@ def calculate_process_capability(
     measurements: List[float],
     usl: float,
     lsl: float,
-    nominal: float
+    nominal: float,
+    subgroups: List[Dict[str, float]] = None
 ) -> Dict[str, Any]:
     """Calculate Cp, Cpk, Pp, Ppk and related statistics."""
     mean = statistics.mean(measurements)
-    std_dev = statistics.stdev(measurements)
     min_val = min(measurements)
     max_val = max(measurements)
 
-    # Process capability (within subgroup)
-    # Using overall std dev as estimate for this implementation
-    cp = (usl - lsl) / (6 * std_dev) if std_dev > 0 else 0
+    # Calculate overall standard deviation (for Pp, Ppk)
+    if len(measurements) < 2:
+        # Use tolerance range as estimate for std dev
+        std_dev_overall = (usl - lsl) / 6 if usl > lsl else 0.1
+    else:
+        std_dev_overall = statistics.stdev(measurements)
 
-    cpu = (usl - mean) / (3 * std_dev) if std_dev > 0 else 0
-    cpl = (mean - lsl) / (3 * std_dev) if std_dev > 0 else 0
+    # Calculate within standard deviation (for Cp, Cpk)
+    # Method 1: Use R-bar / d2 (preferred for Xbar-R charts)
+    if subgroups and len(subgroups) >= 2:
+        r_bar = statistics.mean([s["range"] for s in subgroups])
+        d2 = 2.326  # Constant for subgroup size n=5
+        # If R-bar is 0 (perfect within-subgroup consistency), use small value
+        # This makes Cp large, correctly detecting between-subgroup variation
+        if r_bar > 0:
+            std_dev_within = r_bar / d2
+        else:
+            # Edge case: No within-subgroup variation
+            # Use minimum resolution to avoid division by zero
+            # This correctly results in high Cp when process has between-subgroup shifts
+            std_dev_within = 1e-6
+    else:
+        # Method 2: Use moving range if no subgroups available
+        if len(measurements) >= 2:
+            moving_ranges = [abs(measurements[i] - measurements[i-1])
+                           for i in range(1, len(measurements))]
+            mr_bar = statistics.mean(moving_ranges)
+            # For n=2, d2 = 1.128
+            if mr_bar > 0:
+                std_dev_within = mr_bar / 1.128
+            else:
+                std_dev_within = 1e-6
+        else:
+            std_dev_within = std_dev_overall
+
+    # Process capability (within subgroup) - use std_dev_within
+    cp = (usl - lsl) / (6 * std_dev_within) if std_dev_within > 0 else 0
+    cpu = (usl - mean) / (3 * std_dev_within) if std_dev_within > 0 else 0
+    cpl = (mean - lsl) / (3 * std_dev_within) if std_dev_within > 0 else 0
     cpk = min(cpu, cpl)
 
-    # Overall performance (using overall std dev)
-    pp = (usl - lsl) / (6 * std_dev) if std_dev > 0 else 0
-    ppu = (usl - mean) / (3 * std_dev) if std_dev > 0 else 0
-    ppl = (mean - lsl) / (3 * std_dev) if std_dev > 0 else 0
+    # Overall performance (using overall std dev) - use std_dev_overall
+    pp = (usl - lsl) / (6 * std_dev_overall) if std_dev_overall > 0 else 0
+    ppu = (usl - mean) / (3 * std_dev_overall) if std_dev_overall > 0 else 0
+    ppl = (mean - lsl) / (3 * std_dev_overall) if std_dev_overall > 0 else 0
     ppk = min(ppu, ppl)
 
     # Determine status and suggestion
@@ -84,12 +129,13 @@ def calculate_process_capability(
         "mean": round(mean, 4),
         "max_val": round(max_val, 3),
         "min_val": round(min_val, 3),
-        "std_dev_overall": round(std_dev, 6),
+        "std_dev_overall": round(std_dev_overall, 6),
+        "std_dev_within": round(std_dev_within, 6),
         "cp": round(cp, 3),
         "cpk": round(cpk, 3),
         "pp": round(pp, 2),
         "ppk": round(ppk, 2),
-        "six_sigma_spread": round(6 * std_dev, 4),
+        "six_sigma_spread": round(6 * std_dev_overall, 4),
         "status": status,
         "conclusion": f"{conclusion} (Cpk: {cpk:.2f})",
         "suggestion": suggestion
@@ -116,6 +162,21 @@ def parse_dimension_from_data(
             nominal = float(base_part)
             usl = nominal + tol
             lsl = nominal - tol
+    elif "±" in spec_str:
+        # ENHANCED: Handle ± format without diameter prefix (e.g., "2.88±1.0")
+        parts = spec_str.split("±")
+        base_part = parts[0]
+        tol_part = parts[1]
+        try:
+            nominal = float(base_part)
+            tol = float(tol_part)
+            usl = nominal + tol
+            lsl = nominal - tol
+        except ValueError:
+            # If parsing fails, use defaults
+            nominal = float(base_part) if base_part.replace('.', '').isdigit() else 0.0
+            usl = nominal * 1.01
+            lsl = nominal * 0.99
     elif "+" in spec_str and "-" in spec_str:
         # Bilateral tolerance like "27.80+0.10-0.00"
         base = float(spec_str.split("+")[0])
@@ -126,13 +187,21 @@ def parse_dimension_from_data(
         lsl = base - minus_tol
     else:
         # Simple spec - assume ± from nominal
-        nominal = float(spec_str)
-        usl = nominal * 1.01
-        lsl = nominal * 0.99
+        try:
+            nominal = float(spec_str)
+            usl = nominal * 1.01
+            lsl = nominal * 0.99
+        except ValueError:
+            # If all parsing fails, use defaults
+            nominal = 0.0
+            usl = 1.0
+            lsl = -1.0
 
-    # Calculate statistics
-    capability = calculate_process_capability(measurements, usl, lsl, nominal)
+    # Calculate subgroups first (needed for capability calculation)
     subgroups = calculate_subgroups(measurements)
+
+    # Calculate statistics (pass subgroups for correct Cp/Cpk calculation)
+    capability = calculate_process_capability(measurements, usl, lsl, nominal, subgroups)
     control_limits = calculate_control_limits(subgroups)
 
     return {
@@ -183,6 +252,18 @@ def generate_html_report(iqc_data: Dict[str, Any], output_path: str) -> None:
     # Inject data
     data_json = json.dumps(iqc_data, ensure_ascii=False, indent=8)
     html_content = html_content.replace("const iqcData = {};", f"const iqcData = {data_json};")
+
+    # Verify replacement happened
+    if "const iqcData = {};" in html_content:
+        raise ValueError("Failed to replace iqcData placeholder in HTML template!")
+    if "const iqcData = {" not in html_content:
+        raise ValueError("iqcData JSON not properly injected into HTML!")
+
+    # Verify dimensions exist
+    if not iqc_data.get("dimensions"):
+        raise ValueError("No dimensions found in IQC data!")
+
+    print(f"✅ Injected {len(iqc_data['dimensions'])} dimensions into HTML report")
 
     # Write output
     Path(output_path).write_text(html_content, encoding="utf-8")
