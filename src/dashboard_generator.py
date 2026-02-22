@@ -445,7 +445,7 @@ def _create_qq_plot(measurements: List[float]) -> str:
 
 
 def _create_capability_plot(measurements: List[float], usl: float, lsl: float, stats: Dict) -> str:
-    """Create capability plot with distribution and limits - Professional styling"""
+    """Create capability plot with distribution and limits - Enhanced styling with visible limits"""
     measurements_arr = np.array(measurements)
     mu, std = np.mean(measurements_arr), np.std(measurements_arr, ddof=1)
 
@@ -461,51 +461,121 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         x=x,
         y=y,
         mode='lines',
-        name='概率密度分布',
+        name='概率密度分布 Probability Density',
         line=dict(color='#0891B2', width=3),
         fill='tozeroy',
         fillcolor='rgba(8, 145, 178, 0.15)'
     ))
 
-    # Add specification limits with improved labels
-    fig.add_vline(x=usl, line_dash="dash", line_color="#DC2626",
-                  line_width=2.5,
-                  annotation_text=f"USL: {usl}",
-                  annotation_position="top left",
-                  annotation_font_size=11,
-                  annotation_font_color="#DC2626")
-    fig.add_vline(x=lsl, line_dash="dash", line_color="#DC2626",
-                  line_width=2.5,
-                  annotation_text=f"LSL: {lsl}",
-                  annotation_position="top left",
-                  annotation_font_size=11,
-                  annotation_font_color="#DC2626")
-    fig.add_vline(x=mu, line_dash="solid", line_color="#16A34A",
-                  line_width=2,
-                  annotation_text=f"均值 μ: {mu:.4f}",
-                  annotation_position="top",
-                  annotation_font_size=11,
-                  annotation_font_color="#16A34A")
+    # Add shaded regions for out-of-specification areas
+    # Above USL
+    x_usl = np.linspace(usl, measurements_arr.max() + 0.5, 50)
+    y_usl = ((1 / (std * np.sqrt(2 * np.pi))) *
+             np.exp(-0.5 * ((x_usl - mu) / std) ** 2))
+    fig.add_trace(go.Scatter(
+        x=x_usl,
+        y=y_usl,
+        mode='lines',
+        name='超差区 >USL',
+        line=dict(color='#DC2626', width=0),
+        fill='tozeroy',
+        fillcolor='rgba(220, 38, 38, 0.25)',
+        showlegend=True
+    ))
+
+    # Below LSL
+    x_lsl = np.linspace(measurements_arr.min() - 0.5, lsl, 50)
+    y_lsl = ((1 / (std * np.sqrt(2 * np.pi))) *
+             np.exp(-0.5 * ((x_lsl - mu) / std) ** 2))
+    fig.add_trace(go.Scatter(
+        x=x_lsl,
+        y=y_lsl,
+        mode='lines',
+        name='超差区 <LSL',
+        line=dict(color='#DC2626', width=0),
+        fill='tozeroy',
+        fillcolor='rgba(220, 38, 38, 0.25)',
+        showlegend=True
+    ))
+
+    # Add specification limits with ENHANCED styling
+    fig.add_vline(
+        x=usl,
+        line_dash="dash",
+        line_color="#DC2626",
+        line_width=4,
+        annotation_text=f"<b>上限 USL</b>: {usl}",
+        annotation_position="top right",
+        annotation_font_size=13,
+        annotation_font_color="#DC2626",
+        annotation_font_weight="bold",
+        annotation_textangle=0
+    )
+    fig.add_vline(
+        x=lsl,
+        line_dash="dash",
+        line_color="#DC2626",
+        line_width=4,
+        annotation_text=f"<b>下限 LSL</b>: {lsl}",
+        annotation_position="top left",
+        annotation_font_size=13,
+        annotation_font_color="#DC2626",
+        annotation_font_weight="bold",
+        annotation_textangle=0
+    )
+
+    # Add target/nominal line (center of specification)
+    target = (usl + lsl) / 2
+    fig.add_vline(
+        x=target,
+        line_dash="dot",
+        line_color="#22C55E",
+        line_width=2.5,
+        annotation_text=f"<b>目标 Target</b>: {target:.4f}",
+        annotation_position="top",
+        annotation_font_size=12,
+        annotation_font_color="#22C55E",
+        annotation_font_weight="bold"
+    )
+
+    # Add mean line
+    fig.add_vline(
+        x=mu,
+        line_dash="solid",
+        line_color="#16A34A",
+        line_width=2.5,
+        annotation_text=f"<b>均值 Mean</b>: {mu:.4f}",
+        annotation_position="bottom",
+        annotation_font_size=12,
+        annotation_font_color="#16A34A",
+        annotation_font_weight="bold"
+    )
 
     # Calculate PPM
     ppm_above = ((measurements_arr > usl).sum() / len(measurements_arr)) * 1e6
     ppm_below = ((measurements_arr < lsl).sum() / len(measurements_arr)) * 1e6
     ppm_total = ppm_above + ppm_below
 
+    # Calculate specification width and process centering
+    spec_width = usl - lsl
+    centering = ((mu - target) / (spec_width / 2)) * 100 if spec_width > 0 else 0
+
     # Professional annotation box - Chinese + English bilingual
     annotation_text = (
         f"<b>能力指数 Capability Indices</b><br>"
-        f"─────────────────<br>"
+        f"══════════════════<br>"
         f"Cp:  <b>{stats['cp']:.3f}</b>   "
         f"Cpk: <b>{stats['cpk']:.3f}</b><br>"
         f"Pp:  <b>{stats['pp']:.3f}</b>   "
         f"Ppk: <b>{stats['ppk']:.3f}</b><br>"
         f"<br>"
-        f"<b>百万分率 PPM</b><br>"
-        f"─────────────────<br>"
+        f"<b>百万分率 PPM (Defect Rate)</b><br>"
+        f"══════════════════════════<br>"
         f"总计 Total: <b>{ppm_total:.0f}</b><br>"
         f">USL: <b>{ppm_above:.0f}</b>   "
-        f"<LSL: <b>{ppm_below:.0f}</b>"
+        f"<LSL: <b>{ppm_below:.0f}</b><br>"
+        f"<br>"
+        f"<b>规格中心ing: {centering:+.1f}%</b>"
     )
 
     fig.add_annotation(
@@ -513,10 +583,10 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         xref='paper', yref='paper',
         text=annotation_text,
         showarrow=False,
-        bgcolor='rgba(255, 255, 255, 0.95)',
+        bgcolor='rgba(255, 255, 255, 0.98)',
         bordercolor='#0891B2',
-        borderwidth=2,
-        borderpad=10,
+        borderwidth=3,
+        borderpad=12,
         yanchor='top',
         xanchor='right',
         font=dict(size=11, color='#1F2937')
@@ -529,26 +599,37 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
 
     fig.update_layout(
         title=dict(
-            text="6. Capability Plot (能力分析图)",
-            font=dict(size=16, color='#1F2937', family='Arial, sans-serif')
+            text="6. Capability Plot (过程能力分析图)",
+            font=dict(size=16, color='#1F2937', family='Arial, sans-serif', weight='bold')
         ),
         xaxis=dict(
-            title=dict(text="测量值 Measurement Value", font=dict(size=13)),
+            title=dict(text="测量值 Measurement Value", font=dict(size=13, weight='bold')),
             range=[x_min - x_padding, x_max + x_padding],
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)',
+            gridcolor='rgba(0,0,0,0.08)',
+            gridwidth=1,
             zeroline=False
         ),
         yaxis=dict(
-            title=dict(text="概率密度 Probability Density", font=dict(size=13)),
+            title=dict(text="概率密度 Probability Density", font=dict(size=13, weight='bold')),
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)'
+            gridcolor='rgba(0,0,0,0.08)',
+            gridwidth=1
         ),
         height=450,
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
-        margin=dict(l=10, r=10, t=40, b=50),
-        font=dict(family='Arial, sans-serif', color='#374151')
+        margin=dict(l=60, r=60, t=60, b=60),
+        font=dict(family='Arial, sans-serif', color='#374151', size=11),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        )
     )
 
     return fig.to_html(full_html=False, include_plotlyjs='cdn')
