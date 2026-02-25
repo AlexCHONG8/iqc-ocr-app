@@ -591,6 +591,9 @@ if page == "📊 数据分析":
                     python3 manual_data_entry_helper.py
                     ```
                     """)
+                    
+                    # Stop processing if OCR failed
+                    st.stop()
                 except Exception as e:
                     # OCR processing error - show helpful message
                     error_msg = str(e)
