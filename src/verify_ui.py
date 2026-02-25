@@ -631,7 +631,7 @@ if page == "📊 数据分析":
 
                     # Step 3: Auto-generate professional HTML dashboard
                     try:
-                        from dashboard_generator import generate_professional_dashboard
+                        from src.dashboard_generator import generate_professional_dashboard
                         html_path = generate_professional_dashboard(
                             st.session_state.dim_data,
                             st.session_state.stats_list,
@@ -1201,9 +1201,30 @@ if page == "📊 数据分析":
                         st.success(f"✅ 报告已保存！ID: {report_id}")
 
                 with col_save2:
-                    if st.button(f"📄 生成 HTML 报告", key=f"report_{i}"):
-                        st.success("✅ HTML 报告已生成（V2 功能：PDF 导出）")
-                        st.info("💡 提示：按 Ctrl+P 可打印或保存为 PDF")
+                    st.write("📄 **生成单份报告**")
+                    # Prepare data for just this dimension
+                    single_dim_data = [data]
+                    single_stats_list = [stats_result]
+                    
+                    try:
+                        from src.dashboard_generator import generate_professional_dashboard
+                        report_filename = f"{batch_id}_{dim_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                        single_html_path = generate_professional_dashboard(
+                            single_dim_data,
+                            single_stats_list,
+                            layout="tabbed"
+                        )
+                        
+                        with open(single_html_path, 'rb') as f:
+                            st.download_button(
+                                label="💾 下载专属 HTML 报告",
+                                data=f,
+                                file_name=report_filename,
+                                mime='text/html',
+                                key=f"dl_report_{i}"
+                            )
+                    except Exception as e:
+                        st.error(f"生成 HTML 失败: {e}")
 
 # ===============================
 # 页面 2：历史记录

@@ -187,7 +187,7 @@ def _create_xbar_chart(subgroups: Dict, stats: Dict) -> str:
             f"▸ Focus on Pp/Ppk for lot acceptance"
         )
         fig.add_annotation(
-            x=0.02, y=0.98,
+            x=0.0, y=-0.25,
             xref='paper', yref='paper',
             text=iqc_note,
             showarrow=False,
@@ -225,7 +225,7 @@ def _create_xbar_chart(subgroups: Dict, stats: Dict) -> str:
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
         font=dict(family='Arial, sans-serif', color='#374151', size=11),
-        margin=dict(l=60, r=30, t=50, b=60),
+        margin=dict(l=60, r=30, t=50, b=180),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -339,7 +339,7 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
     )
 
     fig.add_annotation(
-        x=0.98, y=0.98,
+        x=1.0, y=-0.25,
         xref='paper', yref='paper',
         text=stats_text,
         showarrow=False,
@@ -361,7 +361,7 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
             f"▸ Not for detecting time-based process shifts"
         )
         fig.add_annotation(
-            x=0.02, y=0.98,
+            x=0.0, y=-0.25,
             xref='paper', yref='paper',
             text=iqc_note,
             showarrow=False,
@@ -399,7 +399,7 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
         font=dict(family='Arial, sans-serif', color='#374151', size=11),
-        margin=dict(l=60, r=60, t=50, b=60),
+        margin=dict(l=60, r=60, t=50, b=180),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -522,7 +522,7 @@ def _create_histogram(measurements: List[float], usl: float, lsl: float) -> str:
     )
 
     fig.add_annotation(
-        x=0.98, y=0.98,
+        x=1.0, y=-0.25,
         xref='paper', yref='paper',
         text=stats_text,
         showarrow=False,
@@ -556,7 +556,7 @@ def _create_histogram(measurements: List[float], usl: float, lsl: float) -> str:
         height=450,
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
-        margin=dict(l=60, r=60, t=50, b=60),
+        margin=dict(l=60, r=60, t=50, b=180),
         font=dict(family='Arial, sans-serif', color='#374151', size=11),
         showlegend=True,
         legend=dict(
@@ -832,7 +832,7 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         )
 
     fig.add_annotation(
-        x=0.98, y=0.98,
+        x=1.0, y=-0.25,
         xref='paper', yref='paper',
         text=annotation_text,
         showarrow=False,
@@ -872,7 +872,7 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         height=480,
         plot_bgcolor='rgba(255, 255, 255, 0.98)',
         paper_bgcolor='white',
-        margin=dict(l=60, r=60, t=60, b=60),
+        margin=dict(l=60, r=60, t=60, b=180),
         font=dict(family='Arial, sans-serif', color='#374151', size=11),
         showlegend=True,
         legend=dict(

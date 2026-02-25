@@ -164,8 +164,9 @@ class OCRService:
             import traceback
             print(f"❌ MinerU API Error: {e}")
             traceback.print_exc()
-            print("🔄 Falling back to mock data for testing...")
-            return self._get_mock_data_multi()
+            # Raise exception instead of falling back to mock data so UI can show error
+            raise ValueError(f"OCR Extraction Failed: {str(e)}\n\n"
+                             f"Please check your OCR_API_KEY or use manual data entry mode.")
 
     def _parse_markdown_to_json(self, md):
         """
@@ -212,7 +213,10 @@ class OCRService:
                     "measurements": measurements
                 })
 
-        return dimension_sets if dimension_sets else self._get_mock_data_multi()
+        if not dimension_sets:
+            raise ValueError("❌ 未能从OCR结果中提取到任何尺寸数据。请检查扫描件是否清晰，或者联系支持。")
+
+        return dimension_sets
 
     def _parse_chinese_qc_report(self, md):
         """
@@ -273,7 +277,8 @@ class OCRService:
                     if header_row and spec_row:
                         for j in range(1, len(header_row)):
                             loc_name = header_row[j].get_text(strip=True)
-                            if loc_name in ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']:
+                            # Accept any non-empty string as a location name (OCR might misread ① as 1, etc.)
+                            if loc_name and loc_name not in ['/', '\\', '-', '—']:
                                 spec_text = spec_row[j].get_text(strip=True) if j < len(spec_row) else ""
                                 
                                 # Compute USL/LSL
