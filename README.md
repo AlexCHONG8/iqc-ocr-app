@@ -41,6 +41,7 @@ python3 -m streamlit run src/verify_ui.py
 **Steps**:
 
 1. Open the URL provided (usually `http://localhost:8501`).
+   - 🌐 **To share with colleagues**: Give them the **Network URL** shown in your terminal when you start the app (e.g., `http://10.170.47.152:8503`). They must be on the same local network (Wi-Fi/LAN) to access it.
 2. Upload a scanned QC sheet (PDF/JPG/PNG).
 3. Review the AI-extracted table on the right.
 4. Correct any red-flagged cells.
