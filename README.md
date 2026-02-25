@@ -1,4 +1,4 @@
-# 🛡️ 6SPC Analysis Report Tool
+# 📥 IQC Pro Max - Incoming Quality Control Analysis
 
 A "Zero-Friction" digitization and reporting tool for medical device plastic injection components. It converts handwritten QC scans into compliant 6SPC analysis reports using AI (MinerU).
 

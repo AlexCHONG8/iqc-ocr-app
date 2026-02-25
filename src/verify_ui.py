@@ -1,5 +1,5 @@
 """
-6SPC Pro Max - 智能质量分析系统
+IQC Pro Max - 智能质量分析系统
 完整的 Streamlit UI 实现（v1.0 + v1.5）
 包含：OCR 识别、数据验证、6 SPC 图表、历史记录、Excel 导出
 """
@@ -249,7 +249,7 @@ Ppk = {stats['ppk']:.3f}
 # ===============================
 
 st.set_page_config(
-    page_title="6SPC Pro Max | 智能质量分析",
+    page_title="森迈医疗 | IQC Pro Max | 智能质量分析",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -276,23 +276,131 @@ st.markdown("""
     }
 
     .stMetric {
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.9);
         padding: 20px;
         border-radius: 15px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        border: 1px solid rgba(8, 145, 178, 0.2);
+        border: 1px solid rgba(8, 145, 178, 0.3);
     }
 
+    /* Sidebar - Professional Medical-Grade Design */
     .stSidebar {
-        background-color: #134E4A;
+        background: linear-gradient(180deg, #115E59 0%, #0F766E 50%, #134E4A 100%) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     [data-testid="stSidebarNav"] {
-        background-color: #134E4A;
+        background: linear-gradient(180deg, #115E59 0%, #0F766E 50%, #134E4A 100%) !important;
     }
 
+    /* Sidebar text - HIGH CONTRAST */
     .sidebar-text {
-        color: white !important;
+        color: #FFFFFF !important;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Sidebar radio buttons - Professional styling */
+    [data-testid="stSidebar"] [role="radiogroup"] > label {
+        color: #FFFFFF !important;
+        font-weight: 600;
+        font-size: 15px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        margin: 6px 0;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.2s ease;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateX(2px);
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label[data-selected="true"] {
+        background: linear-gradient(135deg, #0891B2 0%, #22D3EE 100%) !important;
+        font-weight: 700;
+        border: 2px solid #67E8F9;
+        box-shadow: 0 4px 12px rgba(8, 145, 178, 0.4);
+        text-shadow: none;
+    }
+
+    /* Sidebar buttons - High visibility */
+    [data-testid="stSidebar"] button[kind="primary"] {
+        background: linear-gradient(135deg, #22D3EE 0%, #0891B2 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 700;
+        font-size: 16px;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 24px;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-testid="stSidebar"] button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%) !important;
+        box-shadow: 0 6px 20px rgba(34, 211, 238, 0.5);
+        transform: translateY(-1px);
+    }
+
+    /* File uploader - Clear and visible */
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 3px dashed rgba(255, 255, 255, 0.4) !important;
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s ease;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: #22D3EE !important;
+        box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] label {
+        color: #FFFFFF !important;
+        font-weight: 700;
+        font-size: 16px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
+        color: #134E4A !important;
+    }
+
+    /* Sidebar labels and text - MAXIMUM READABILITY */
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .css-1d391kg,
+    [data-testid="stSidebar"] span {
+        color: #FFFFFF !important;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #FFFFFF !important;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Input fields in sidebar - High contrast */
+    [data-testid="stSidebar"] input[type="text"],
+    [data-testid="stSidebar"] input[type="number"],
+    [data-testid="stSidebar"] textarea {
+        background: rgba(255, 255, 255, 0.95) !important;
+        color: #134E4A !important;
+        font-weight: 600;
+        border: 2px solid rgba(255, 255, 255, 0.3);
     }
 
     .premium-card {
@@ -328,6 +436,16 @@ st.markdown("""
         margin: 10px 0;
     }
 
+    /* Force text color for all markdown text, paragraphs, labels, and spans to override Dark Mode defaults */
+    .stMarkdown p, .stMarkdown span, .stText p, label, .stMetric label, .stMetric div, .stDataFrame div, .stSpinner p, .stSpinner div, .stSpinner span, [data-testid="stSpinner"] * {
+        color: #134E4A !important;
+    }
+    
+    /* Ensure table text is readable */
+    td {
+        color: #134E4A !important;
+    }
+
     /* 隐藏 Streamlit 默认元素 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -351,12 +469,12 @@ if 'show_advanced' not in st.session_state:
 # 侧边栏
 # ===============================
 
-st.sidebar.markdown("<h2 class='sidebar-text'>📦 6SPC Pro Max</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<h2 class='sidebar-text'>📦 IQC Pro Max</h2>", unsafe_allow_html=True)
 
 # 主要功能导航
 page = st.sidebar.radio(
     "选择功能",
-    ["📊 数据分析", "📁 历史记录", "⚙️ 设置"],
+    ["📊 数据分析", "📝 手动录入 (Manual Entry)", "📁 历史记录", "⚙️ 设置"],
     label_visibility="collapsed"
 )
 
@@ -369,7 +487,7 @@ if page == "📊 数据分析":
     # Hero Section
     st.markdown(f"""
         <div style="background: linear-gradient(135deg, #0891B2 0%, #134E4A 100%); padding: 60px; border-radius: 20px; color: white; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(8, 145, 178, 0.3);">
-            <h1 style="color: white !important; margin: 0; font-size: 3rem;">🛡️ 6SPC Pro Max</h1>
+            <h1 style="color: white !important; margin: 0; font-size: 3rem;">🏥 森迈医疗 | IQC Pro Max</h1>
             <p style="font-size: 1.2rem; opacity: 0.9; margin-top: 10px;">智能质量分析系统 | v1.5</p>
             <div style="margin-top: 25px;">
                 <span style="background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 20px; font-size: 0.9rem;">ISO 13485 Compliant</span>
@@ -386,12 +504,16 @@ if page == "📊 数据分析":
         help="支持 PDF、JPG、PNG 格式"
     )
 
-    if not uploaded_file:
+    if 'dim_data' not in st.session_state:
         st.markdown("""
             <div class="premium-card">
-                <h3>👋 欢迎使用 6SPC Pro Max</h3>
-                <p>请上传检验记录扫描件开始自动化分析。系统将：</p>
-                <ul>
+                <h2 style="color: #0891B2; font-size: 28px; font-weight: 700; margin-bottom: 20px;">
+                    👋 欢迎使用 IQC Pro Max
+                </h2>
+                <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+                    请上传检验记录扫描件开始自动化分析。系统将：
+                </p>
+                <ul style="font-size: 15px; color: #374151; line-height: 1.8;">
                     <li>✅ 使用 AI 自动识别测量数据</li>
                     <li>✅ 计算完整的 6 SPC 指数（Cp/Cpk/Pp/Ppk）</li>
                     <li>✅ 生成 6 个统计图表（3 图基础 + 3 图高级）</li>
@@ -400,12 +522,50 @@ if page == "📊 数据分析":
                 </ul>
             </div>
         """, unsafe_allow_html=True)
-    else:
+
+    if uploaded_file is not None:
+        # Store uploaded file in session state for side-by-side view
+        st.session_state.uploaded_file = uploaded_file
+
+        # === Session State Tracking for Uploads ===
+        if 'previous_upload' not in st.session_state:
+            st.session_state.previous_upload = None
+        if 'previous_dashboard_path' not in st.session_state:
+            st.session_state.previous_dashboard_path = None
+
+        # Detect second upload - offer download and cleanup
+        if uploaded_file != st.session_state.previous_upload:
+            if st.session_state.previous_dashboard_path:
+                old_dashboard_path = st.session_state.previous_dashboard_path
+
+                # Show download button for old report
+                with st.expander("📥 Previous Report Available - Download Before Deleted", expanded=True):
+                    st.warning(f"⚠️ Previous report detected. Please download before continuing.")
+                    with open(old_dashboard_path, 'rb') as f:
+                        st.download_button(
+                            label="💾 Download Previous HTML Report",
+                            data=f,
+                            file_name=os.path.basename(old_dashboard_path),
+                            mime='text/html',
+                            key=f"download_old_{int(time.time())}"
+                        )
+
+                # Delete old file after showing download button
+                try:
+                    if os.path.exists(old_dashboard_path):
+                        os.remove(old_dashboard_path)
+                        st.success("🗑️ Old report deleted (cleanup complete)")
+                except Exception as e:
+                    st.error(f"❌ Failed to delete old report: {e}")
+
+            # Update tracking
+            st.session_state.previous_upload = uploaded_file
+
         # One-Click Workflow: Upload → Auto OCR → Auto Dashboard
         ocr = OCRService()
 
         if 'dim_data' not in st.session_state or st.sidebar.button("🔄 重新处理"):
-            with st.spinner("🤖 AI 正在分析... (多策略OCR + 6SPC计算 + 自动生成报告)"):
+            with st.spinner("🤖 AI 正在分析... (OCR识别 → 数据提取 → SPC统计计算)"):
                 # Save uploaded file to temp location for OCR processing
                 with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
                     tmp_file.write(uploaded_file.getbuffer())
@@ -416,38 +576,53 @@ if page == "📊 数据分析":
                     st.session_state.dim_data = ocr.extract_table_data(tmp_file_path)
                     st.session_state.original_data = [d.copy() for d in st.session_state.dim_data]
 
-                    # Auto-detect and auto-fix mock data for known problematic PDFs
-                    is_mock = any('D' in d['header'].get('batch_id', '') for d in st.session_state.dim_data)
+                except ValueError as ve:
+                    # OCR configuration error
+                    st.error(f"❌ OCR配置错误\n\n{str(ve)}")
+                    st.info("""
+                    **解决方案:**
 
-                    if is_mock and '20260122_111541' in uploaded_file.name:
-                        # Auto-load correct data for this specific PDF
-                        manual_specs = [
-                            {
-                                'location': '1',
-                                'usl': 27.9,
-                                'lsl': 27.8,
-                                'name': '位置1',
-                                'measurements': [27.85, 27.84, 27.81, 27.82, 27.85, 27.84, 27.82, 27.85, 27.81, 27.84]
-                            },
-                            {
-                                'location': '11',
-                                'usl': 6.1,
-                                'lsl': 5.9,
-                                'name': 'Φ位置11',
-                                'measurements': [6.02, 6.02, 6.01, 6.01, 6.06, 6.02, 6.04, 6.02, 6.03, 6.03]
-                            },
-                            {
-                                'location': '13',
-                                'usl': 73.2,
-                                'lsl': 73.05,
-                                'name': '位置13',
-                                'measurements': [73.14, 73.12, 73.15, 73.12, 73.10, 73.15, 73.19, 73.19, 73.15, 73.13]
-                            }
-                        ]
-                        st.session_state.dim_data = ocr.create_manual_entry(manual_specs)
-                        st.session_state.original_data = [d.copy() for d in st.session_state.dim_data]
+                    1. 检查 `.env` 文件中的 `OCR_API_KEY`
+                    2. 访问 https://mineru.net 获取API密钥
+                    3. 确保 `.env` 文件在项目根目录
 
-                    # Step 2: Calculate statistics for all dimensions
+                    **或者使用手动数据输入:**
+                    ```bash
+                    python3 manual_data_entry_helper.py
+                    ```
+                    """)
+                except Exception as e:
+                    # OCR processing error - show helpful message
+                    error_msg = str(e)
+                    st.error(f"❌ OCR识别失败")
+
+                    # Detailed error info in expander
+                    with st.expander("📋 查看错误详情 Click to view error details"):
+                        st.code(f"Error: {error_msg}")
+
+                    st.info("""
+                    **可能的原因:**
+
+                    1. 🌐 MinerU API服务暂时不可用（10点工作正常，现在可能服务器过载）
+                    2. 📄 文件格式不支持（请使用PDF/JPG/PNG扫描件）
+                    3. 🔑 API密钥无效或已过期
+                    4. ⏱️ 上传文件过大（建议<10MB）
+
+                    **建议解决方案:**
+                    - 稍后重试（API可能恢复）
+                    - 检查文件格式是否正确
+                    - 使用**手动数据输入工具**:
+                      ```bash
+                      python3 manual_data_entry_helper.py
+                      ```
+                    - 或者等待API服务恢复后再次尝试
+                    """)
+
+                    # Stop processing if OCR failed
+                    st.stop()
+
+                # Step 2: Calculate statistics for all dimensions
+                if st.session_state.dim_data:
                     st.session_state.stats_list = []
                     for dim in st.session_state.dim_data:
                         engine = SPCEngine(usl=dim['header']['usl'], lsl=dim['header']['lsl'])
@@ -463,14 +638,14 @@ if page == "📊 数据分析":
                             layout="tabbed"
                         )
                         st.session_state.dashboard_path = html_path
+                        st.session_state.previous_dashboard_path = html_path  # Track for next upload
                         st.success(f"✅ 分析完成！已生成专业报告\n\n📁 **报告位置:** `{html_path}`\n💾 您也可以在下方直接下载报告")
                     except Exception as e:
                         st.warning(f"⚠️ 报告生成遇到问题: {e}")
 
-                finally:
-                    # Clean up temp file
-                    if os.path.exists(tmp_file_path):
-                        os.unlink(tmp_file_path)
+                # Clean up temp file
+                if os.path.exists(tmp_file_path):
+                    os.unlink(tmp_file_path)
 
         # Show professional dashboard if available
         if hasattr(st.session_state, 'dashboard_path') and os.path.exists(st.session_state.dashboard_path):
@@ -518,6 +693,11 @@ if page == "📊 数据分析":
                         key=f"dim_{i}"
                     )
 
+                    # NEW: Show actual measurement count and batch info
+                    st.metric("测量点数 Measurements", f"{len(data['measurements'])} points")
+                    if data["header"].get("batch_size"):
+                        st.metric("批量 Batch Size", f"{data['header']['batch_size']}")
+
                 with col2:
                     st.subheader("📐 规格限")
                     usl = st.number_input(
@@ -544,10 +724,20 @@ if page == "📊 数据分析":
                         data["measurements"] = corrected
                         st.session_state.dim_data[i] = data
 
+                        # Store corrections in session state for filtering
+                        if "corrections" not in st.session_state:
+                            st.session_state.corrections = {}
+                        st.session_state.corrections[str(i)] = corrections
+
                         if corrections:
                             st.success(f"✅ 已修正 {len(corrections)} 处 OCR 误读")
-                            with st.expander("查看修正详情"):
-                                st.dataframe(pd.DataFrame(corrections))
+                            with st.expander("查看修正详情 | View Correction Details"):
+                                for c in corrections:
+                                    st.write(f"Row {c['index']+1} | 行 {c['index']+1}: `{c['original']}` → `{c['corrected']}`")
+                                    st.caption(f"Reason: {c['rule']} | 原因: {c['rule']}")
+                                    st.write("---")
+                                st.write("**💡 Tip**: Use 'Show only corrected values' checkbox below to focus on these rows")
+                                st.write("**💡 提示**: 使用下方的 '仅显示修正值' 复选框来聚焦这些行")
                         else:
                             st.info("ℹ️ 未发现需要修正的数据")
 
@@ -574,7 +764,58 @@ if page == "📊 数据分析":
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
 
+                # === Original Scan Side-by-Side View ===
+                with st.expander("📄 View Original Scan (Side-by-Side Comparison) | 查看原始扫描件", expanded=False):
+                    col_left, col_right = st.columns(2)
+
+                    with col_left:
+                        st.subheader("Original Scan | 原始扫描件")
+                        if "uploaded_file" in st.session_state and st.session_state.uploaded_file:
+                            # Display the uploaded scan image
+                            from PIL import Image
+                            try:
+                                # Reset file pointer to beginning
+                                st.session_state.uploaded_file.seek(0)
+                                image = Image.open(st.session_state.uploaded_file)
+                                st.image(image, use_container_width=True)
+                            except Exception as e:
+                                st.error(f"无法显示图片: {str(e)}")
+                                st.info("提示: PDF 文件无法直接预览，请使用 JPG/PNG 格式")
+                        else:
+                            st.info("No scan image available | 无扫描件")
+
+                    with col_right:
+                        st.subheader("Extracted Data Summary | 提取数据摘要")
+                        if st.session_state.get("dim_data"):
+                            for idx, dim in enumerate(st.session_state.dim_data):
+                                st.write(f"**Dimension {idx+1}:** {dim['header']['dimension_name']}")
+                                st.write(f"- Batch: {dim['header']['batch_id']}")
+                                st.write(f"- USL: {dim['header']['usl']}, LSL: {dim['header']['lsl']}")
+                                st.write(f"- Measurements: {len(dim['measurements'])} points")
+                                st.write(f"- Mean: {np.mean(dim['measurements']):.4f}")
+                                st.write("---")
+                        else:
+                            st.info("No data available | 无数据")
+
                 # === 数据编辑器 ===
+
+                # === Filter Options | 筛选选项 ===
+                st.markdown("---")
+                st.subheader("Data Display Options | 数据显示选项")
+
+                # Get correction count for this dimension
+                corrections = st.session_state.get("corrections", {})
+                correction_count = len(corrections.get(str(i), []))
+
+                if correction_count > 0:
+                    show_corrected_only = st.checkbox(
+                        f"🔍 Show only corrected values | 仅显示修正值 ({correction_count} corrections)",
+                        key=f"show_corrected_{i}",
+                        value=False
+                    )
+                else:
+                    show_corrected_only = False
+                    st.info("✅ No corrections detected - showing all data | 未检测到修正 - 显示全部数据")
                 st.markdown("---")
                 col1, col2 = st.columns([1, 1])
 
@@ -596,14 +837,31 @@ if page == "📊 数据分析":
                     for idx in outlier_result["outliers_idx"]:
                         df.at[idx, "状态"] = "⚠️ 异常"
 
-                    # 显示编辑器
-                    edited_df = st.data_editor(
-                        df,
-                        num_rows="dynamic",
-                        key=f"editor_{i}",
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    # Apply filter if show_corrected_only is True
+                    if show_corrected_only and correction_count > 0:
+                        corrected_indices = [c['index'] for c in corrections.get(str(i), [])]
+                        df_filtered = df.iloc[corrected_indices].copy()
+                        st.info(f"Showing {len(df_filtered)} corrected values only | 仅显示 {len(df_filtered)} 个修正值")
+                        edited_df = st.data_editor(
+                            df_filtered,
+                            column_config={"测量值": st.column_config.NumberColumn(format="%.2f")},
+                            num_rows="dynamic",
+                            key=f"editor_filtered_{i}",
+                            use_container_width=True,
+                            hide_index=True,
+                            height=600  # Enable scrolling to show all rows
+                        )
+                    else:
+                        # Show all data
+                        edited_df = st.data_editor(
+                            df,
+                            column_config={"测量值": st.column_config.NumberColumn(format="%.2f")},
+                            num_rows="dynamic",
+                            key=f"editor_{i}",
+                            use_container_width=True,
+                            hide_index=True,
+                            height=600  # Enable scrolling to show all rows
+                        )
 
                     # 更新数据
                     updated_measurements = edited_df["测量值"].tolist()
@@ -878,9 +1136,10 @@ if page == "📊 数据分析":
                         fig_x.update_layout(plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)', height=300)
                         st.plotly_chart(fig_x, use_container_width=True)
 
-                    # 3. R-图
+                    # 3. R-图 (或 MR-图 for individual measurements)
                     with g3:
-                        st.markdown("**📉 3. R 控制图**")
+                        chart_title = "MR 控制图 (移动极差)" if control_limits.get("is_moving_range", False) else "R 控制图 (极差)"
+                        st.markdown(f"**📉 3. {chart_title}**")
                         r_values = control_limits["r"]["values"]
 
                         fig_r = px.line(y=r_values, title="子组极差")
@@ -1022,11 +1281,27 @@ elif page == "📁 历史记录":
                 with col2:
                     st.subheader("📈 原始数据")
                     data = report["data"]
+                    st.caption(f"📊 Total: {len(data)} measurements | 总计: {len(data)} 个测量值")
                     df_data = pd.DataFrame({
                         "序号": range(1, len(data) + 1),
-                        "测量值": data
+                        "测量值": [round(x, 4) for x in data]
                     })
-                    st.dataframe(df_data, use_container_width=True, height=300)
+                    st.dataframe(
+                        df_data,
+                        use_container_width=True,
+                        height=800,
+                        column_config={
+                            "序号": st.column_config.NumberColumn(
+                                "序号",
+                                width="small"
+                            ),
+                            "测量值": st.column_config.NumberColumn(
+                                "测量值",
+                                format="%.4f",
+                                width="medium"
+                            )
+                        }
+                    )
 
                 if st.button(f"🗑️ 删除此报告"):
                     st.session_state.history_manager.delete_report(selected_report_id)
@@ -1063,7 +1338,7 @@ elif page == "⚙️ 设置":
 
     st.markdown(f"""
     <div class="premium-card">
-        <h3>6SPC Pro Max v1.5</h3>
+        <h3>IQC Pro Max v1.5</h3>
         <p><strong>功能特性</strong>：</p>
         <ul>
             <li>✅ MinerU AI OCR 识别</li>

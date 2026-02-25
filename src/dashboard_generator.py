@@ -1,5 +1,5 @@
 """
-Professional HTML Dashboard Generator for 6SPC Pro Max
+Professional HTML Dashboard Generator for IQC Pro Max
 Generates ISO 13485 compliant tabbed interface with all analysis
 """
 
@@ -178,6 +178,28 @@ def _create_xbar_chart(subgroups: Dict, stats: Dict) -> str:
         annotation_font_weight="bold"
     )
 
+    # Add IQC context annotation if in IQC mode
+    if stats.get('mode') == 'iqc':
+        iqc_note = (
+            f"<b>📥 IQC Context</b><br>"
+            f"▸ No time dimension - lot from single batch<br>"
+            f"▸ Subgroups show statistical grouping<br>"
+            f"▸ Focus on Pp/Ppk for lot acceptance"
+        )
+        fig.add_annotation(
+            x=0.02, y=0.98,
+            xref='paper', yref='paper',
+            text=iqc_note,
+            showarrow=False,
+            bgcolor='rgba(255, 255, 200, 0.95)',
+            bordercolor='#F59E0B',
+            borderwidth=2,
+            borderpad=8,
+            yanchor='top',
+            xanchor='left',
+            font=dict(size=9, color='#92400E')
+        )
+
     fig.update_layout(
         title=dict(
             text="2. X-bar Control Chart (均值控制图)",
@@ -219,8 +241,14 @@ def _create_xbar_chart(subgroups: Dict, stats: Dict) -> str:
 
 
 def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
-    """Create R control chart - Professional styling with enhanced visibility and better UI"""
+    """Create R control chart (or MR chart for individual measurements) - Professional styling"""
     r_values = subgroups['r']
+    is_moving_range = subgroups.get('is_moving_range', False)
+
+    # Determine chart title based on chart type
+    chart_title = "3. MR Chart (移动极差图)" if is_moving_range else "3. R Control Chart (极差控制图)"
+    chart_subtitle = "Moving Range | MR" if is_moving_range else "Subgroup Range | R"
+    y_axis_title = "移动极差 Moving Range (MR)" if is_moving_range else "子组极差 Subgroup Range (R)"
 
     # Calculate control limits (constants for n=5: D3=0, D4=2.114)
     r_bar = np.mean(r_values) if len(r_values) > 0 else 0
@@ -324,13 +352,35 @@ def _create_r_chart(subgroups: Dict, stats: Dict) -> str:
         font=dict(size=11, color='#1F2937')
     )
 
+    # Add IQC context annotation if in IQC mode
+    if stats.get('mode') == 'iqc':
+        iqc_note = (
+            f"<b>📥 IQC Context</b><br>"
+            f"▸ No time dimension - shows statistical variation<br>"
+            f"▸ {'Moving Range (MR)' if is_moving_range else 'Range (R)'}: within-lot variation<br>"
+            f"▸ Not for detecting time-based process shifts"
+        )
+        fig.add_annotation(
+            x=0.02, y=0.98,
+            xref='paper', yref='paper',
+            text=iqc_note,
+            showarrow=False,
+            bgcolor='rgba(255, 255, 200, 0.95)',
+            bordercolor='#F59E0B',
+            borderwidth=2,
+            borderpad=8,
+            yanchor='top',
+            xanchor='left',
+            font=dict(size=9, color='#92400E')
+        )
+
     fig.update_layout(
         title=dict(
-            text="3. R Control Chart (极差控制图)",
+            text=chart_title,
             font=dict(size=16, color='#1F2937', family='Arial, sans-serif', weight='bold')
         ),
         yaxis=dict(
-            title=dict(text="子组极差 Subgroup Range (R)", font=dict(size=13, weight='bold')),
+            title=dict(text=y_axis_title, font=dict(size=13, weight='bold')),
             showgrid=True,
             gridcolor='rgba(0,0,0,0.08)',
             gridwidth=1,
@@ -739,32 +789,47 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
     ppm_below = ((measurements_arr < lsl).sum() / len(measurements_arr)) * 1e6
     ppm_total = ppm_above + ppm_below
 
+    # Calculate OOS (Out-of-Spec) statistics for IQC
+    oos_count = ((measurements_arr > usl) | (measurements_arr < lsl)).sum()
+    oos_pct = (oos_count / len(measurements_arr)) * 100
+
     # Calculate specification width and process centering
     spec_width = usl - lsl
     centering = ((mu - target) / (spec_width / 2)) * 100 if spec_width > 0 else 0
 
-    # Professional annotation box - Chinese + English bilingual
-    annotation_text = (
-        f"<b>能力指数 Capability Indices</b><br>"
-        f"══════════════════<br>"
-        f"Cp:  <b>{stats['cp']:.3f}</b>   "
-        f"Cpk: <b>{stats['cpk']:.3f}</b><br>"
-        f"Pp:  <b>{stats['pp']:.3f}</b>   "
-        f"Ppk: <b>{stats['ppk']:.3f}</b><br>"
-        f"<br>"
-        f"<b>百万分率 PPM (Defect Rate)</b><br>"
-        f"══════════════════════════<br>"
-        f"总计 Total: <b>{ppm_total:.0f}</b><br>"
-        f">USL: <b>{ppm_above:.0f}</b>   "
-        f"<LSL: <b>{ppm_below:.0f}</b><br>"
-        f"<br>"
-        f"<b>规格中心ing: {centering:+.1f}%</b><br>"
-        f"<br>"
-        f"<b>规格限值 Spec Limits</b><br>"
-        f"══════════════════════<br>"
-        f"USL: <b>{usl:.4f}</b><br>"
-        f"LSL: <b>{lsl:.4f}</b>"
-    )
+    # Check if IQC mode and determine decision
+    is_iqc = stats.get('mode') == 'iqc'
+
+    if is_iqc:
+        # IQC decision logic based on user's criteria
+        if stats['ppk'] >= 1.33 and oos_pct == 0:
+            decision = "✅ ACCEPT"
+            decision_color = "#22C55E"
+        elif stats['ppk'] >= 1.00 and oos_pct <= 5:
+            decision = "⚠️ REVIEW"
+            decision_color = "#F59E0B"
+        else:
+            decision = "❌ REJECT"
+            decision_color = "#EF4444"
+
+        # IQC annotation box with Pp/Ppk emphasis and decision
+        annotation_text = (
+            f"<b>IQC Lot Analysis</b><br>"
+            f"<b style='color:{decision_color};font-size:14px'>{decision}</b><br>"
+            f"Pp:<b>{stats['pp']:.2f}</b> Ppk:<b>{stats['ppk']:.2f}</b> ⭐<br>"
+            f"Cp:<b>{stats['cp']:.2f}</b> Cpk:<b>{stats['cpk']:.2f}</b><br>"
+            f"OOS:<b>{oos_count}/{len(measurements_arr)}</b> ({oos_pct:.1f}%)<br>"
+            f"PPM: <b>{ppm_total:.0f}</b>"
+        )
+    else:
+        # Standard SPC annotation box
+        annotation_text = (
+            f"<b>能力指数 Capability</b><br>"
+            f"Cp:<b>{stats['cp']:.2f}</b> Cpk:<b>{stats['cpk']:.2f}</b><br>"
+            f"Pp:<b>{stats['pp']:.2f}</b> Ppk:<b>{stats['ppk']:.2f}</b><br>"
+            f"PPM总计 Total: <b>{ppm_total:.0f}</b><br>"
+            f">USL:<b>{ppm_above:.0f}</b> <LSL:<b>{ppm_below:.0f}</b>"
+        )
 
     fig.add_annotation(
         x=0.98, y=0.98,
@@ -773,11 +838,11 @@ def _create_capability_plot(measurements: List[float], usl: float, lsl: float, s
         showarrow=False,
         bgcolor='rgba(255, 255, 255, 0.98)',
         bordercolor='#0891B2',
-        borderwidth=3,
-        borderpad=12,
+        borderwidth=2,
+        borderpad=8,
         yanchor='top',
         xanchor='right',
-        font=dict(size=11, color='#1F2937')
+        font=dict(size=10, color='#1F2937')
     )
 
     # Focus x-axis on data range (add 15% padding)
@@ -868,7 +933,7 @@ def generate_professional_dashboard(dim_data: List[Dict], stats_list: List[Dict]
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>6SPC Pro Max - Quality Analysis Report</title>
+    <title>森迈医疗 | IQC Pro Max - Quality Analysis Report</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         /* Medical-grade professional styling */
@@ -1088,7 +1153,7 @@ def generate_professional_dashboard(dim_data: List[Dict], stats_list: List[Dict]
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🛡️ 6SPC Pro Max 质量分析报告</h1>
+            <h1>🏥 森迈医疗 | IQC Pro Max 质量分析报告</h1>
             <p>ISO 13485 Compliant | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         </div>
 
@@ -1455,21 +1520,26 @@ def _generate_dimension_content(dim: Dict, stats: Dict, index: int) -> str:
     # Data table
     data_rows = ""
     for j, val in enumerate(measurements, 1):
-        data_rows += f"<tr><td>{j}</td><td>{val:.4f}</td></tr>\n"
+        data_rows += f"<tr><td>{j}</td><td>{val:.2f}</td></tr>\n"
 
     data_html = f"""
     <h3>📋 Measurement Data</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>序号</th>
-                <th>测量值</th>
-            </tr>
-        </thead>
-        <tbody>
-            {data_rows}
-        </tbody>
-    </table>
+    <div style="max-height: 600px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>测量值</th>
+                </tr>
+            </thead>
+            <tbody>
+                {data_rows}
+            </tbody>
+        </table>
+    </div>
+    <p style="margin-top: 10px; color: #6B7280; font-size: 12px;">
+        Total: {len(measurements)} measurements
+    </p>
     """
 
     return info_html + stats_html + analysis_html + charts_html + data_html

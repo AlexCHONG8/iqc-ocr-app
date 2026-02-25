@@ -340,3 +340,135 @@ class PlasticInjectionAnalyzer:
                 "🚨 **工艺状态严重** - 多数尺寸不受控，"
                 "建议立即停机检查热流道系统、温度控制器和工艺设置。"
             )
+
+    def analyze_iqc_lot(self, dim_data, stats):
+        """
+        IQC-specific lot analysis with emphasis on Pp/Ppk and % OOS.
+        
+        This method is designed for Incoming QC (lot inspection) rather than in-process SPC.
+        Focuses on lot acceptance decision, not process stability or drift detection.
+        
+        Args:
+            dim_data: Dimension set with header and measurements
+            stats: SPC statistics dictionary (must contain ppk, pp, mean, etc.)
+        
+        Returns:
+            Dictionary with IQC-specific analysis including:
+            - decision: ACCEPT/REJECT/REVIEW
+            - oos_count: Number of out-of-spec samples
+            - oos_pct: Percentage of out-of-spec samples
+            - overall_assessment: Text explanation
+            - recommendation: Actionable recommendation
+        """
+        import numpy as np
+        
+        measurements = np.array(dim_data['measurements'])
+        usl = dim_data['header']['usl']
+        lsl = dim_data['header']['lsl']
+        
+        # Calculate OOS (Out-of-Spec) statistics
+        oos_above = (measurements > usl).sum()
+        oos_below = (measurements < lsl).sum()
+        oos_total = oos_above + oos_below
+        oos_pct = (oos_total / len(measurements)) * 100
+        
+        # Calculate PPM (Parts Per Million) defect rates
+        ppm_above = ((measurements > usl).sum() / len(measurements)) * 1e6
+        ppm_below = ((measurements < lsl).sum() / len(measurements)) * 1e6
+        ppm_total = ppm_above + ppm_below
+        
+        ppk = stats['ppk']
+        
+        # Decision criteria based on user's requirements
+        if ppk >= 1.33 and oos_pct == 0:
+            status = "EXCELLENT"
+            status_emoji = "✅"
+            risk_level = "LOW"
+            decision = "ACCEPT - Excellent quality"
+            color = "#22C55E"  # Green
+        elif ppk >= 1.33 and oos_pct <= 2:
+            status = "GOOD"
+            status_emoji = "✅"
+            risk_level = "LOW"
+            decision = "ACCEPT - Meets requirements"
+            color = "#22C55E"  # Green
+        elif ppk >= 1.00 and oos_pct <= 5:
+            status = "ACCEPTABLE"
+            status_emoji = "⚠️"
+            risk_level = "MEDIUM"
+            decision = "REVIEW - Monitor next lots"
+            color = "#F59E0B"  # Orange
+        else:
+            status = "CRITICAL"
+            status_emoji = "❌"
+            risk_level = "HIGH"
+            decision = "REJECT - Does not meet requirements"
+            color = "#EF4444"  # Red
+        
+        # Generate overall assessment
+        if status == "EXCELLENT":
+            assessment = (
+                f"**Excellent lot quality** - Ppk of {ppk:.2f} indicates excellent performance. "
+                f"All {len(measurements)} samples are within specification limits. "
+                f"Estimated defect rate: {ppm_total:.0f} PPM. "
+                f"Lot meets both capability (Ppk ≥ 1.33) and quality (0% OOS) criteria."
+            )
+        elif status == "GOOD":
+            assessment = (
+                f"**Good lot quality** - Ppk of {ppk:.2f} meets capability requirements. "
+                f"Minor out-of-spec detected: {oos_total} samples ({oos_pct:.1f}%) exceed limits. "
+                f"Estimated defect rate: {ppm_total:.0f} PPM. "
+                f"Lot is acceptable for incoming QC."
+            )
+        elif status == "ACCEPTABLE":
+            assessment = (
+                f"**Marginal lot quality** - Ppk of {ppk:.2f} is below preferred threshold. "
+                f"Out-of-spec detected: {oos_total} samples ({oos_pct:.1f}%) exceed limits. "
+                f"Estimated defect rate: {ppm_total:.0f} PPM. "
+                f"Recommend monitoring supplier performance on next lots."
+            )
+        else:
+            assessment = (
+                f"**Poor lot quality** - Ppk of {ppk:.2f} does not meet minimum requirements. "
+                f"Significant out-of-spec: {oos_total} samples ({oos_pct:.1f}%) exceed limits. "
+                f"Estimated defect rate: {ppm_total:.0f} PPM. "
+                f"Lot should be rejected or returned to supplier."
+            )
+        
+        # Generate recommendation
+        if status in ["EXCELLENT", "GOOD"]:
+            recommendation = (
+                "✅ **Accept lot for production use**. No special actions required. "
+                "Continue monitoring this supplier's performance over time."
+            )
+        elif status == "ACCEPTABLE":
+            recommendation = (
+                "⚠️ **Accept with caution** - Lot may be used but monitor quality closely. "
+                "Increase sampling frequency for next lots from this supplier. "
+                "Review supplier's process if trend continues."
+            )
+        else:
+            recommendation = (
+                "❌ **Reject lot** - Does not meet IQC acceptance criteria. "
+                "Return to supplier or request replacement lot with better quality. "
+                "File quality complaint with documented OOS evidence."
+            )
+        
+        return {
+            "status": status,
+            "status_emoji": status_emoji,
+            "risk_level": risk_level,
+            "decision": decision,
+            "oos_count": int(oos_total),
+            "oos_above": int(oos_above),
+            "oos_below": int(oos_below),
+            "oos_pct": float(oos_pct),
+            "ppk": ppk,
+            "pp": stats['pp'],
+            "ppm_total": float(ppm_total),
+            "ppm_above": float(ppm_above),
+            "ppm_below": float(ppm_below),
+            "color": color,
+            "overall_assessment": assessment,
+            "recommendation": recommendation
+        }

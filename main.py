@@ -1,5 +1,5 @@
 """
-6SPC Pro Max - CLI 演示工具
+IQC Pro Max - CLI 演示工具
 展示 v1.0 + v1.5 的所有功能
 """
 
@@ -15,7 +15,7 @@ from src.utils import (
 
 def main():
     print("=" * 60)
-    print("🛡️ 6SPC Pro Max - 智能质量分析系统 | v1.5")
+    print("📥 IQC Pro Max - 智能质量分析系统 | v1.5")
     print("=" * 60)
     print()
 
